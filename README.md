@@ -1,7 +1,7 @@
 # 🎧 BluetoothDeviceConnector
 
 <div align="center">
-  <img src="logo.png" alt="TeleDrop" width="200">
+  <img src="logo.png" alt="BluetoothDeviceConnector" width="200">
 </div>
 
 <div align="center">
