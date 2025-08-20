@@ -1,6 +1,23 @@
-# BluetoothDeviceConnector 🔊🔗
+# 🎧 BluetoothDeviceConnector
 
-BluetoothDeviceConnector is a script created in AutoHotkey that allows you to automatically connect a specific Bluetooth device, such as "AirPods Pro". This script uses the Windows Bluetooth Control Panel to find and connect the specified device.
+<div align="center">
+  <img src="logo.png" alt="TeleDrop" width="200">
+</div>
+
+<div align="center">
+  <img src="https://img.shields.io/badge/AutoHotkey-334455?style=for-the-badge&logo=autohotkey&logoColor=white" alt="AutoHotkey">
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
+  <img src="https://img.shields.io/badge/Bluetooth-0082FC?style=for-the-badge&logo=bluetooth&logoColor=white" alt="Bluetooth">
+</div>
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-Windows-blue.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
+  <img src="https://img.shields.io/badge/version-1.0.0-brightgreen.svg" alt="Version">
+  <img src="https://img.shields.io/github/stars/ChromuSx/BluetoothDeviceConnector?style=social" alt="Stars">
+</p>
+<p align="center">
+  <strong>🔗 BluetoothDeviceConnector is a script created in AutoHotkey that allows you to automatically connect a specific Bluetooth device, such as "AirPods Pro". This script uses the Windows Bluetooth Control Panel to find and connect the specified device.</strong>
+</p>
 
 ## Features ✨
 - Automatically searches for the specified Bluetooth device.
