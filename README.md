@@ -48,7 +48,7 @@ The script will display notifications in case of:
 You can customize the script to include more devices or add extra functionality. AutoHotkey is a versatile scripting language that allows you to automate many operations on Windows.
 
 ## Contributions 🤝
-Contributions and improvements are welcome! Feel free to submit a pull request or report any issues on [GitHub](https://github.com/yourusername/BluetoothDeviceConnector).
+Contributions and improvements are welcome! Feel free to submit a pull request or report any issues on [GitHub](https://github.com/ChromuSx/BluetoothDeviceConnector).
 
 ## License 📜
 This project is licensed under the MIT License. Feel free to use, modify, and distribute the script as you like.
