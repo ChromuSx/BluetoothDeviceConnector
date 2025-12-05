@@ -34,10 +34,10 @@
 - **Operating System**: Windows
 - **Libraries**: The script uses the Bluetooth control library provided by Windows (`Bthprops.cpl`).
 - **System Icon**: The script uses a system icon (requires the path `C:\WINDOWS\system32\netshell.dll`).
-- **AutoHotkey**: Must be installed to run this script. [Download AutoHotkey](https://www.autohotkey.com/).
+- **AutoHotkey v2**: Must be installed to run this script. [Download AutoHotkey v2](https://www.autohotkey.com/).
 
 ## How to Use 🚀
-1. **Install AutoHotkey**: Make sure AutoHotkey is installed.
+1. **Install AutoHotkey v2**: Make sure AutoHotkey v2 is installed.
 2. **Copy the code**: Copy the script code into `BluetoothDeviceConnector.ahk`.
 3. **Run the script**: Double-click the `.ahk` file to run the script.
 
