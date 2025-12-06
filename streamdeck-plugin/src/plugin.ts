@@ -91,10 +91,9 @@ async function handleConnectAction(context: string, settings: Settings) {
 
   try {
     const pluginPath = process.cwd();
-    const ahkPath = path.join(pluginPath, 'AutoHotkey64.exe');
-    const scriptPath = path.join(pluginPath, 'bluetooth_connector.ahk');
+    const exePath = path.join(pluginPath, 'BluetoothConnector.exe');
 
-    const command = `"${ahkPath}" "${scriptPath}" "${deviceName}" "${action}"`;
+    const command = `"${exePath}" "${deviceName}" "${action}"`;
 
     const { stdout, stderr } = await execAsync(command, {
       timeout: 30000,
