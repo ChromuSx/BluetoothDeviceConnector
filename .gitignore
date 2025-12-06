@@ -2,9 +2,11 @@
 
 # Stream Deck Plugin
 streamdeck-plugin/node_modules/
+streamdeck-plugin/.sdPlugin/node_modules/
 streamdeck-plugin/.sdPlugin/bin/*.js
 streamdeck-plugin/.sdPlugin/bin/*.js.map
 streamdeck-plugin/package-lock.json
+*.streamDeckPlugin
 
 # Logs
 *.log
