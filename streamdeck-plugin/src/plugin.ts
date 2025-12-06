@@ -108,36 +108,60 @@ async function handleConnectAction(context: string, settings: Settings) {
       if (!isConnected) {
         // Just connected - show connected state
         setState(context, 2);
+        setTitle(context, 'Connected!');
         showOK(context);
+        playSound('success');
         logMessage(`Connected to ${deviceName}`);
+
+        // Clear title after 2 seconds
+        setTimeout(() => setTitle(context, ''), 2000);
       } else {
         // Just disconnected - return to disconnected state
         setState(context, 0);
+        setTitle(context, 'Disconnected!');
         showOK(context);
+        playSound('success');
         logMessage(`Disconnected from ${deviceName}`);
+
+        // Clear title after 2 seconds
+        setTimeout(() => setTitle(context, ''), 2000);
       }
     } else if (stderr || stdout.includes('ERROR')) {
       // Set to "Error" state (state 3)
       setState(context, 3);
+      setTitle(context, 'Error!');
       showAlert(context);
+      playSound('error');
       logMessage(`Failed to ${action}: ${stdout || stderr}`);
 
-      // Return to previous state after 3 seconds
-      setTimeout(() => setState(context, isConnected ? 2 : 0), 3000);
+      // Return to previous state after 3 seconds, clear title
+      setTimeout(() => {
+        setState(context, isConnected ? 2 : 0);
+        setTitle(context, '');
+      }, 3000);
     }
   } catch (error: any) {
     // Set to "Error" state (state 3)
     setState(context, 3);
+    setTitle(context, 'Error!');
     showAlert(context);
+    playSound('error');
     logMessage(`Error: ${error.message}`);
 
-    // Return to previous state after 3 seconds
-    setTimeout(() => setState(context, isConnected ? 2 : 0), 3000);
+    // Return to previous state after 3 seconds, clear title
+    setTimeout(() => {
+      setState(context, isConnected ? 2 : 0);
+      setTitle(context, '');
+    }, 3000);
   }
 }
 
 function setState(context: string, state: number) {
   sendEvent('setState', context, { state });
+}
+
+function setTitle(context: string, title: string) {
+  sendEvent('setTitle', context, { title });
 }
 
 function showOK(context: string) {
@@ -150,6 +174,20 @@ function showAlert(context: string) {
 
 function logMessage(message: string) {
   sendEvent('logMessage', undefined, { message });
+}
+
+function playSound(soundType: 'success' | 'error') {
+  // Play Windows system sounds using PowerShell
+  const soundCommand =
+    soundType === 'success'
+      ? '[System.Media.SystemSounds]::Asterisk.Play()'
+      : '[System.Media.SystemSounds]::Exclamation.Play()';
+
+  exec(`powershell -Command "${soundCommand}"`, (error) => {
+    if (error) {
+      logMessage(`Failed to play sound: ${error.message}`);
+    }
+  });
 }
 
 function sendEvent(event: string, context?: string, payload?: any) {
