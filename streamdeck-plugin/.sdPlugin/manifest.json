@@ -1,54 +1,55 @@
 {
-  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
-  "Name": "Bluetooth Device Connector",
-  "Version": "1.0.1",
-  "Author": "ChromuSx",
-  "Description": "Quickly connect your Bluetooth devices with a single button press",
-  "Icon": "imgs/plugin-icon",
-  "CodePath": "bin/plugin.js",
-  "PropertyInspectorPath": "ui/property-inspector.html",
-  "SDKVersion": 2,
-  "Nodejs": {
-    "Version": "20",
-    "Debug": "enabled"
-  },
-  "OS": [
-    {
-      "Platform": "windows",
-      "MinimumVersion": "10"
-    }
-  ],
-  "Software": {
-    "MinimumVersion": "6.9"
-  },
-  "UUID": "com.chromusx.bluetooth-connector",
-  "Actions": [
-    {
-      "Name": "Connect Bluetooth Device",
-      "UUID": "com.chromusx.bluetooth-connector.connect",
-      "Icon": "imgs/action-icon",
-      "Tooltip": "Connect to a Bluetooth device",
-      "States": [
-        {
-          "Image": "imgs/key-disconnected",
-          "Name": "Disconnected"
-        },
-        {
-          "Image": "imgs/key-connecting",
-          "Name": "Connecting"
-        },
-        {
-          "Image": "imgs/key-connected",
-          "Name": "Connected"
-        },
-        {
-          "Image": "imgs/key-error",
-          "Name": "Error"
-        }
-      ],
-      "PropertyInspectorPath": "ui/property-inspector.html",
-      "SupportedInMultiActions": true,
-      "UserTitleEnabled": true
-    }
-  ]
+	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+	"Name": "Bluetooth Device Connector",
+	"Version": "1.0.1.0",
+	"Author": "chromusx",
+	"Description": "Quickly connect your Bluetooth devices with a single button press",
+	"URL": "https://github.com/ChromuSx/BluetoothDeviceConnector",
+	"Icon": "imgs/plugin-icon",
+	"CodePath": "bin/plugin.js",
+	"PropertyInspectorPath": "ui/property-inspector.html",
+	"SDKVersion": 3,
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Software": {
+		"MinimumVersion": "6.9"
+	},
+	"UUID": "com.chromusx.bluetooth-connector",
+	"Actions": [
+		{
+			"Name": "Connect Bluetooth Device",
+			"UUID": "com.chromusx.bluetooth-connector.connect",
+			"Icon": "imgs/action-icon",
+			"Tooltip": "Connect to a Bluetooth device",
+			"States": [
+				{
+					"Image": "imgs/key-disconnected",
+					"Name": "Disconnected"
+				},
+				{
+					"Image": "imgs/key-connecting",
+					"Name": "Connecting"
+				},
+				{
+					"Image": "imgs/key-connected",
+					"Name": "Connected"
+				},
+				{
+					"Image": "imgs/key-error",
+					"Name": "Error"
+				}
+			],
+			"PropertyInspectorPath": "ui/property-inspector.html",
+			"SupportedInMultiActions": true,
+			"UserTitleEnabled": true
+		}
+	]
 }
