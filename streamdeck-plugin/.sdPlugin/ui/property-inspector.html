@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bluetooth Device Connector Settings</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #2d2d2d;
+            color: #d4d4d4;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 400px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #9d9d9d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: #3c3c3c;
+            border: 1px solid #5a5a5a;
+            border-radius: 4px;
+            color: #d4d4d4;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #0e7afe;
+        }
+
+        input[type="text"]::placeholder {
+            color: #6a6a6a;
+        }
+
+        .info-text {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #6a6a6a;
+            line-height: 1.4;
+        }
+
+        .example {
+            margin-top: 12px;
+            padding: 10px;
+            background-color: #3c3c3c;
+            border-left: 3px solid #0e7afe;
+            border-radius: 2px;
+        }
+
+        .example-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #9d9d9d;
+            margin-bottom: 6px;
+        }
+
+        .example-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .example-list li {
+            font-size: 11px;
+            color: #6a6a6a;
+            padding: 2px 0;
+        }
+
+        .example-list li::before {
+            content: "•";
+            margin-right: 8px;
+            color: #0e7afe;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-group">
+            <label for="deviceName">Bluetooth Device Name</label>
+            <input
+                type="text"
+                id="deviceName"
+                placeholder="Enter device name (e.g., AirPods Pro)"
+                autocomplete="off"
+            />
+            <p class="info-text">
+                Enter the exact name of your Bluetooth device as it appears in Windows Bluetooth settings.
+            </p>
+
+            <div class="example">
+                <div class="example-title">Common Examples:</div>
+                <ul class="example-list">
+                    <li>AirPods Pro</li>
+                    <li>Sony WH-1000XM4</li>
+                    <li>Bose QuietComfort</li>
+                    <li>Surface Headphones</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let pluginUUID = null;
+        let actionInfo = {};
+        let settings = {};
+
+        function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+            pluginUUID = inUUID;
+            actionInfo = JSON.parse(inActionInfo);
+            settings = actionInfo.payload.settings;
+
+            websocket = new WebSocket('ws://127.0.0.1:' + inPort);
+
+            websocket.onopen = function() {
+                const json = {
+                    event: inRegisterEvent,
+                    uuid: inUUID
+                };
+                websocket.send(JSON.stringify(json));
+
+                document.getElementById('deviceName').value = settings.deviceName || '';
+            };
+
+            websocket.onerror = function(error) {
+                console.error('WebSocket Error:', error);
+            };
+        }
+
+        document.getElementById('deviceName').addEventListener('input', function(event) {
+            settings.deviceName = event.target.value;
+            saveSettings();
+        });
+
+        function saveSettings() {
+            if (websocket && websocket.readyState === 1) {
+                const json = {
+                    event: 'setSettings',
+                    context: pluginUUID,
+                    payload: settings
+                };
+                websocket.send(JSON.stringify(json));
+            }
+        }
+    </script>
+</body>
+</html>

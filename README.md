@@ -29,6 +29,25 @@
 - Automatically searches for the specified Bluetooth device.
 - Connects the device to Handsfree services (for voice communication) and AudioSink services (for music streaming).
 - Provides visual notifications for success or errors.
+- **🎮 Stream Deck Integration**: One-click Bluetooth connection directly from your Elgato Stream Deck!
+
+## 🎮 Stream Deck Plugin
+
+This project includes an **official Stream Deck plugin** that lets you connect your Bluetooth devices with a single button press!
+
+### Quick Start
+1. Navigate to `streamdeck-plugin/` directory
+2. Follow the [Stream Deck Plugin README](streamdeck-plugin/README.md) for installation
+3. Add the "Connect Bluetooth Device" action to your Stream Deck
+4. Configure your device name and connect instantly!
+
+### Features
+- ✅ One-click Bluetooth connection
+- ⚙️ Configurable device names
+- 🎯 Visual feedback (success/error indicators)
+- 🚀 Fast and lightweight
+
+[→ Learn more about the Stream Deck plugin](streamdeck-plugin/)
 
 ## Requirements 🛠️
 - **Operating System**: Windows

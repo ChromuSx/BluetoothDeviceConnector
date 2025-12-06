@@ -1,0 +1,21 @@
+{
+  "name": "com.chromusx.bluetooth-connector",
+  "version": "1.0.0",
+  "description": "Stream Deck plugin to connect Bluetooth devices",
+  "author": "ChromuSx",
+  "license": "MIT",
+  "main": "src/plugin.ts",
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.js",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "@elgato/streamdeck": "^1.0.0",
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

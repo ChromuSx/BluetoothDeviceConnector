@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "Name": "Bluetooth Device Connector",
+  "Version": "1.0.0",
+  "Author": "ChromuSx",
+  "Description": "Quickly connect your Bluetooth devices with a single button press",
+  "Category": "System",
+  "CategoryIcon": "imgs/category-icon",
+  "Icon": "imgs/plugin-icon",
+  "CodePath": "bin/plugin.js",
+  "PropertyInspectorPath": "ui/property-inspector.html",
+  "SDKVersion": 2,
+  "Nodejs": {
+    "Version": "20",
+    "Debug": "enabled"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.9"
+  },
+  "UUID": "com.chromusx.bluetooth-connector",
+  "Actions": [
+    {
+      "Name": "Connect Bluetooth Device",
+      "UUID": "com.chromusx.bluetooth-connector.connect",
+      "Icon": "imgs/action-icon",
+      "Tooltip": "Connect to a Bluetooth device",
+      "States": [
+        {
+          "Image": "imgs/key-default",
+          "Name": "Default"
+        }
+      ],
+      "PropertyInspectorPath": "ui/property-inspector.html",
+      "SupportedInMultiActions": true,
+      "UserTitleEnabled": true
+    }
+  ]
+}
