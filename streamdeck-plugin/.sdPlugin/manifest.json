@@ -4,8 +4,6 @@
   "Version": "1.0.0",
   "Author": "ChromuSx",
   "Description": "Quickly connect your Bluetooth devices with a single button press",
-  "Category": "System",
-  "CategoryIcon": "imgs/category-icon",
   "Icon": "imgs/plugin-icon",
   "CodePath": "bin/plugin.js",
   "PropertyInspectorPath": "ui/property-inspector.html",
