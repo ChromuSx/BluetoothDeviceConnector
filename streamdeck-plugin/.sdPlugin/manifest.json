@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "Bluetooth Device Connector",
-  "Version": "1.0.0",
+  "Version": "1.0.1",
   "Author": "ChromuSx",
   "Description": "Quickly connect your Bluetooth devices with a single button press",
   "Icon": "imgs/plugin-icon",
