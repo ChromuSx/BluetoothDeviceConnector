@@ -81,7 +81,8 @@ function handleMessage(message: any) {
 async function handleConnectAction(context: string, settings: Settings) {
   const deviceName = settings.deviceName || 'AirPods Pro';
 
-  showOK(context);
+  // Set to "Connecting" state (state 1)
+  setState(context, 1);
 
   try {
     const pluginPath = process.cwd();
@@ -95,16 +96,35 @@ async function handleConnectAction(context: string, settings: Settings) {
     });
 
     if (stdout.includes('SUCCESS')) {
+      // Set to "Connected" state (state 2)
+      setState(context, 2);
       showOK(context);
       logMessage(`Connected to ${deviceName}`);
+
+      // Return to "Disconnected" state after 3 seconds
+      setTimeout(() => setState(context, 0), 3000);
     } else if (stderr || stdout.includes('ERROR')) {
+      // Set to "Error" state (state 3)
+      setState(context, 3);
       showAlert(context);
       logMessage(`Failed to connect: ${stdout || stderr}`);
+
+      // Return to "Disconnected" state after 3 seconds
+      setTimeout(() => setState(context, 0), 3000);
     }
   } catch (error: any) {
+    // Set to "Error" state (state 3)
+    setState(context, 3);
     showAlert(context);
     logMessage(`Error: ${error.message}`);
+
+    // Return to "Disconnected" state after 3 seconds
+    setTimeout(() => setState(context, 0), 3000);
   }
+}
+
+function setState(context: string, state: number) {
+  sendEvent('setState', context, { state });
 }
 
 function showOK(context: string) {

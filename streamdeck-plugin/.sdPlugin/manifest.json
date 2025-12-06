@@ -30,8 +30,20 @@
       "Tooltip": "Connect to a Bluetooth device",
       "States": [
         {
-          "Image": "imgs/key-default",
-          "Name": "Default"
+          "Image": "imgs/key-disconnected",
+          "Name": "Disconnected"
+        },
+        {
+          "Image": "imgs/key-connecting",
+          "Name": "Connecting"
+        },
+        {
+          "Image": "imgs/key-connected",
+          "Name": "Connected"
+        },
+        {
+          "Image": "imgs/key-error",
+          "Name": "Error"
         }
       ],
       "PropertyInspectorPath": "ui/property-inspector.html",
