@@ -24,6 +24,7 @@ interface ActionContext {
 
 let ws: WebSocketLib.WebSocket;
 const settingsCache = new Map<string, Settings>();
+const connectionState = new Map<string, boolean>(); // Track connection state per context
 
 const pluginUUID = 'com.chromusx.bluetooth-connector';
 const connectActionUUID = `${pluginUUID}.connect`;
@@ -81,6 +82,10 @@ function handleMessage(message: any) {
 async function handleConnectAction(context: string, settings: Settings) {
   const deviceName = settings.deviceName || 'AirPods Pro';
 
+  // Determine action based on current connection state
+  const isConnected = connectionState.get(context) || false;
+  const action = isConnected ? 'disconnect' : 'connect';
+
   // Set to "Connecting" state (state 1)
   setState(context, 1);
 
@@ -89,28 +94,36 @@ async function handleConnectAction(context: string, settings: Settings) {
     const ahkPath = path.join(pluginPath, 'AutoHotkey64.exe');
     const scriptPath = path.join(pluginPath, 'bluetooth_connector.ahk');
 
-    const command = `"${ahkPath}" "${scriptPath}" "${deviceName}"`;
+    const command = `"${ahkPath}" "${scriptPath}" "${deviceName}" "${action}"`;
 
     const { stdout, stderr } = await execAsync(command, {
       timeout: 30000,
     });
 
     if (stdout.includes('SUCCESS')) {
-      // Set to "Connected" state (state 2)
-      setState(context, 2);
-      showOK(context);
-      logMessage(`Connected to ${deviceName}`);
+      // Update connection state
+      connectionState.set(context, !isConnected);
 
-      // Return to "Disconnected" state after 3 seconds
-      setTimeout(() => setState(context, 0), 3000);
+      // Set appropriate visual state
+      if (!isConnected) {
+        // Just connected - show connected state
+        setState(context, 2);
+        showOK(context);
+        logMessage(`Connected to ${deviceName}`);
+      } else {
+        // Just disconnected - return to disconnected state
+        setState(context, 0);
+        showOK(context);
+        logMessage(`Disconnected from ${deviceName}`);
+      }
     } else if (stderr || stdout.includes('ERROR')) {
       // Set to "Error" state (state 3)
       setState(context, 3);
       showAlert(context);
-      logMessage(`Failed to connect: ${stdout || stderr}`);
+      logMessage(`Failed to ${action}: ${stdout || stderr}`);
 
-      // Return to "Disconnected" state after 3 seconds
-      setTimeout(() => setState(context, 0), 3000);
+      // Return to previous state after 3 seconds
+      setTimeout(() => setState(context, isConnected ? 2 : 0), 3000);
     }
   } catch (error: any) {
     // Set to "Error" state (state 3)
@@ -118,8 +131,8 @@ async function handleConnectAction(context: string, settings: Settings) {
     showAlert(context);
     logMessage(`Error: ${error.message}`);
 
-    // Return to "Disconnected" state after 3 seconds
-    setTimeout(() => setState(context, 0), 3000);
+    // Return to previous state after 3 seconds
+    setTimeout(() => setState(context, isConnected ? 2 : 0), 3000);
   }
 }
 

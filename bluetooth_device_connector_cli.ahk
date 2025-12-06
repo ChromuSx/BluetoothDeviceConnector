@@ -5,11 +5,14 @@ TraySetIcon("C:\WINDOWS\system32\netshell.dll", 104) ; Set the tray icon to a ne
 ; Get device name from command line argument, or use default
 deviceName := A_Args.Length > 0 ? A_Args[1] : "AirPods Pro"
 
+; Get action from second argument: "connect" (default) or "disconnect"
+action := A_Args.Length > 1 ? A_Args[2] : "connect"
+
 ; Dynamically loads the Bluetooth Control Panel library to use its functions
 DllCall("LoadLibrary", "str", "Bthprops.cpl", "ptr")
 
-; Initialize the toggle state variable and set it to 1 to represent an enabled state
-toggle := toggleOn := 1
+; Initialize the toggle state variable based on action (1 = connect, 0 = disconnect)
+toggle := toggleOn := (action = "connect") ? 1 : 0
 
 ; Calculate structure size based on pointer size
 structSize := 24 + A_PtrSize * 2
@@ -80,7 +83,8 @@ loop
             {
                 if (toggle = toggleOn)
                 {
-                    FileAppend("SUCCESS: Bluetooth device '" . deviceNameActual . "' connected`n", "*")
+                    successMsg := (action = "connect") ? "connected" : "disconnected"
+                    FileAppend("SUCCESS: Bluetooth device '" . deviceNameActual . "' " . successMsg . "`n", "*")
                     ExitApp(0)
                 }
                 toggle := !toggle ; Toggle the state for the next attempt
