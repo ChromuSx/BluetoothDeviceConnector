@@ -1,0 +1,14 @@
+<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Bluetooth symbol for category -->
+  <g stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Vertical line -->
+    <line x1="12" y1="6" x2="12" y2="22"/>
+    <!-- Top triangle -->
+    <path d="M12 6 L18 10.5 L12 15" fill="none"/>
+    <!-- Bottom triangle -->
+    <path d="M12 13 L18 17.5 L12 22" fill="none"/>
+    <!-- Cross lines -->
+    <line x1="7" y1="10.5" x2="18" y2="17.5"/>
+    <line x1="7" y1="17.5" x2="18" y2="10.5"/>
+  </g>
+</svg>

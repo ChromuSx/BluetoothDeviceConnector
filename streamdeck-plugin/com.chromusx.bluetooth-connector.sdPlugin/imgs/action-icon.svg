@@ -1,0 +1,20 @@
+<svg width="144" height="144" viewBox="0 0 144 144" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Bluetooth symbol with connection indicator -->
+  <g stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Bluetooth symbol - correct geometry -->
+    <!-- Vertical line -->
+    <line x1="60" y1="40" x2="60" y2="104"/>
+    <!-- Top triangle -->
+    <path d="M60 40 L78 54 L60 68" fill="none"/>
+    <!-- Bottom triangle -->
+    <path d="M60 76 L78 90 L60 104" fill="none"/>
+    <!-- Cross lines -->
+    <line x1="44" y1="54" x2="78" y2="90"/>
+    <line x1="44" y1="90" x2="78" y2="54"/>
+
+    <!-- Connection wave indicator -->
+    <path d="M92 64 Q97 72 92 80" fill="none" stroke-width="2.5"/>
+    <path d="M100 58 Q107 72 100 86" fill="none" stroke-width="2.5"/>
+    <path d="M108 52 Q117 72 108 92" fill="none" stroke-width="2.5"/>
+  </g>
+</svg>
