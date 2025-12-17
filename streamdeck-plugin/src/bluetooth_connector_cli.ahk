@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#SingleInstance Force
 
 TraySetIcon("C:\WINDOWS\system32\netshell.dll", 104) ; Set the tray icon to a network-related icon from system resources
 
@@ -13,6 +14,9 @@ DllCall("LoadLibrary", "str", "Bthprops.cpl", "ptr")
 
 ; Initialize the toggle state variable based on action (1 = connect, 0 = disconnect)
 toggle := toggleOn := (action = "connect") ? 1 : 0
+
+; Set maximum retry attempts to prevent infinite loops
+maxRetries := 10
 
 ; Calculate structure size based on pointer size
 structSize := 24 + A_PtrSize * 2
@@ -62,6 +66,7 @@ loop
         DllCall("ole32\CLSIDFromString", "wstr", "{0000110b-0000-1000-8000-00805f9b34fb}", "ptr", AudioSink)
 
         ; Toggle the Handsfree service state for voice communication
+        retryCount := 0
         loop
         {
             hr := DllCall("Bthprops.cpl\BluetoothSetServiceState", "ptr", 0, "ptr", BLUETOOTH_DEVICE_INFO, "ptr", Handsfree, "int", toggle)
@@ -73,9 +78,17 @@ loop
             }
             if (hr = 87) ; Error code 87 indicates a parameter error, so toggle the state and retry
                 toggle := !toggle
+
+            retryCount++
+            if (retryCount >= maxRetries)
+            {
+                FileAppend("ERROR: Failed to toggle Handsfree service after " . maxRetries . " attempts`n", "*")
+                ExitApp(3)
+            }
         }
 
         ; Toggle the AudioSink service state for music streaming
+        retryCount := 0
         loop
         {
             hr := DllCall("Bthprops.cpl\BluetoothSetServiceState", "ptr", 0, "ptr", BLUETOOTH_DEVICE_INFO, "ptr", AudioSink, "int", toggle)
@@ -91,6 +104,13 @@ loop
             }
             if (hr = 87) ; Error code 87 indicates a parameter error, so toggle the state and retry
                 toggle := !toggle
+
+            retryCount++
+            if (retryCount >= maxRetries)
+            {
+                FileAppend("ERROR: Failed to toggle AudioSink service after " . maxRetries . " attempts`n", "*")
+                ExitApp(4)
+            }
         }
     }
 }

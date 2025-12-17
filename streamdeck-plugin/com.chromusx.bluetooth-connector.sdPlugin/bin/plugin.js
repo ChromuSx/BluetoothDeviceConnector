@@ -41,6 +41,7 @@ const execAsync = (0, util_1.promisify)(child_process_1.exec);
 let ws;
 const settingsCache = new Map();
 const connectionState = new Map(); // Track connection state per context
+const executionLock = new Map(); // Prevent concurrent executions per context
 const pluginUUID = 'com.chromusx.bluetooth-connector';
 const connectActionUUID = `${pluginUUID}.connect`;
 function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
@@ -81,6 +82,13 @@ function handleMessage(message) {
     }
 }
 async function handleConnectAction(context, settings) {
+    // Check if an execution is already in progress for this context
+    if (executionLock.get(context)) {
+        logMessage('Action already in progress, ignoring button press');
+        return;
+    }
+    // Set execution lock
+    executionLock.set(context, true);
     const deviceName = settings.deviceName || 'AirPods Pro';
     // Determine action based on current connection state
     const isConnected = connectionState.get(context) || false;
@@ -145,6 +153,10 @@ async function handleConnectAction(context, settings) {
             setState(context, isConnected ? 2 : 0);
             setTitle(context, '');
         }, 3000);
+    }
+    finally {
+        // Always release the execution lock
+        executionLock.set(context, false);
     }
 }
 function setState(context, state) {

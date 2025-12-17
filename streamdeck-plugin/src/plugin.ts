@@ -25,6 +25,7 @@ interface ActionContext {
 let ws: WebSocketLib.WebSocket;
 const settingsCache = new Map<string, Settings>();
 const connectionState = new Map<string, boolean>(); // Track connection state per context
+const executionLock = new Map<string, boolean>(); // Prevent concurrent executions per context
 
 const pluginUUID = 'com.chromusx.bluetooth-connector';
 const connectActionUUID = `${pluginUUID}.connect`;
@@ -80,6 +81,15 @@ function handleMessage(message: any) {
 }
 
 async function handleConnectAction(context: string, settings: Settings) {
+  // Check if an execution is already in progress for this context
+  if (executionLock.get(context)) {
+    logMessage('Action already in progress, ignoring button press');
+    return;
+  }
+
+  // Set execution lock
+  executionLock.set(context, true);
+
   const deviceName = settings.deviceName || 'AirPods Pro';
 
   // Determine action based on current connection state
@@ -152,6 +162,9 @@ async function handleConnectAction(context: string, settings: Settings) {
       setState(context, isConnected ? 2 : 0);
       setTitle(context, '');
     }, 3000);
+  } finally {
+    // Always release the execution lock
+    executionLock.set(context, false);
   }
 }
 
