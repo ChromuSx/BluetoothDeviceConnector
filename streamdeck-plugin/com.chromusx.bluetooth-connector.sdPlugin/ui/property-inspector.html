@@ -36,7 +36,12 @@
             letter-spacing: 0.5px;
         }
 
-        input[type="text"] {
+        .select-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        select {
             width: 100%;
             padding: 8px 12px;
             background-color: #3c3c3c;
@@ -48,12 +53,30 @@
             transition: border-color 0.2s;
         }
 
-        input[type="text"]:focus {
+        select:focus {
             border-color: #0e7afe;
         }
 
-        input[type="text"]::placeholder {
-            color: #6a6a6a;
+        button {
+            flex: 0 0 auto;
+            padding: 8px 14px;
+            background-color: #3c3c3c;
+            border: 1px solid #5a5a5a;
+            border-radius: 4px;
+            color: #d4d4d4;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #474747;
+            border-color: #0e7afe;
+        }
+
+        button:active {
+            background-color: #0e7afe;
         }
 
         .info-text {
@@ -62,63 +85,21 @@
             color: #6a6a6a;
             line-height: 1.4;
         }
-
-        .example {
-            margin-top: 12px;
-            padding: 10px;
-            background-color: #3c3c3c;
-            border-left: 3px solid #0e7afe;
-            border-radius: 2px;
-        }
-
-        .example-title {
-            font-size: 11px;
-            font-weight: 600;
-            color: #9d9d9d;
-            margin-bottom: 6px;
-        }
-
-        .example-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .example-list li {
-            font-size: 11px;
-            color: #6a6a6a;
-            padding: 2px 0;
-        }
-
-        .example-list li::before {
-            content: "•";
-            margin-right: 8px;
-            color: #0e7afe;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="form-group">
-            <label for="deviceName">Bluetooth Device Name</label>
-            <input
-                type="text"
-                id="deviceName"
-                placeholder="Enter device name (e.g., AirPods Pro)"
-                autocomplete="off"
-            />
-            <p class="info-text">
-                Enter the exact name of your Bluetooth device as it appears in Windows Bluetooth settings.
-            </p>
-
-            <div class="example">
-                <div class="example-title">Common Examples:</div>
-                <ul class="example-list">
-                    <li>AirPods Pro</li>
-                    <li>Sony WH-1000XM4</li>
-                    <li>Bose QuietComfort</li>
-                    <li>Surface Headphones</li>
-                </ul>
+            <label for="deviceSelect">Bluetooth Device</label>
+            <div class="select-row">
+                <select id="deviceSelect">
+                    <option value="">Detecting devices…</option>
+                </select>
+                <button id="refreshBtn" type="button" title="Refresh device list">⟳</button>
             </div>
+            <p class="info-text">
+                Select the paired device to connect. Don't see it? Pair it in Windows Bluetooth settings, then click ⟳.
+            </p>
         </div>
     </div>
 
@@ -128,41 +109,98 @@
         let actionInfo = {};
         let settings = {};
 
+        const deviceSelect = document.getElementById('deviceSelect');
+        const refreshBtn = document.getElementById('refreshBtn');
+
         function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
             pluginUUID = inUUID;
             actionInfo = JSON.parse(inActionInfo);
-            settings = actionInfo.payload.settings;
+            settings = actionInfo.payload.settings || {};
 
             websocket = new WebSocket('ws://127.0.0.1:' + inPort);
 
-            websocket.onopen = function() {
-                const json = {
-                    event: inRegisterEvent,
-                    uuid: inUUID
-                };
-                websocket.send(JSON.stringify(json));
-
-                document.getElementById('deviceName').value = settings.deviceName || '';
+            websocket.onopen = function () {
+                websocket.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }));
+                requestDevices();
             };
 
-            websocket.onerror = function(error) {
+            websocket.onmessage = function (evt) {
+                let data;
+                try {
+                    data = JSON.parse(evt.data);
+                } catch (e) {
+                    return;
+                }
+                if (
+                    data.event === 'sendToPropertyInspector' &&
+                    data.payload &&
+                    data.payload.event === 'deviceList'
+                ) {
+                    populateDevices(data.payload.devices || []);
+                }
+            };
+
+            websocket.onerror = function (error) {
                 console.error('WebSocket Error:', error);
             };
         }
 
-        document.getElementById('deviceName').addEventListener('input', function(event) {
-            settings.deviceName = event.target.value;
+        // Ask the plugin for the list of paired Bluetooth devices.
+        function requestDevices() {
+            if (!websocket || websocket.readyState !== 1) return;
+            deviceSelect.innerHTML = '<option value="">Detecting devices…</option>';
+            websocket.send(JSON.stringify({
+                event: 'sendToPlugin',
+                action: actionInfo.action,
+                context: pluginUUID,
+                payload: { event: 'getDevices' }
+            }));
+        }
+
+        // Fill the dropdown with the detected devices, preserving the saved choice.
+        function populateDevices(devices) {
+            const saved = settings.deviceName || '';
+            deviceSelect.innerHTML = '';
+
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = devices.length ? '— Select a device —' : 'No paired devices found';
+            deviceSelect.appendChild(placeholder);
+
+            // Keep a previously-saved device visible even if it isn't currently
+            // detected, so the persisted choice is never silently lost.
+            if (saved && devices.indexOf(saved) === -1) {
+                const opt = document.createElement('option');
+                opt.value = saved;
+                opt.textContent = saved + ' (not detected)';
+                opt.selected = true;
+                deviceSelect.appendChild(opt);
+            }
+
+            devices.forEach(function (name) {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                if (name === saved) opt.selected = true;
+                deviceSelect.appendChild(opt);
+            });
+        }
+
+        // Persist the selection whenever it changes.
+        deviceSelect.addEventListener('change', function () {
+            settings.deviceName = deviceSelect.value;
             saveSettings();
         });
 
+        refreshBtn.addEventListener('click', requestDevices);
+
         function saveSettings() {
             if (websocket && websocket.readyState === 1) {
-                const json = {
+                websocket.send(JSON.stringify({
                     event: 'setSettings',
                     context: pluginUUID,
                     payload: settings
-                };
-                websocket.send(JSON.stringify(json));
+                }));
             }
         }
     </script>

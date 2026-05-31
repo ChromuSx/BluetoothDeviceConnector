@@ -10,8 +10,7 @@
 	"PropertyInspectorPath": "ui/property-inspector.html",
 	"SDKVersion": 3,
 	"Nodejs": {
-		"Version": "20",
-		"Debug": "enabled"
+		"Version": "20"
 	},
 	"OS": [
 		{

@@ -1,83 +1,143 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
+#NoTrayIcon ; Background helper invoked by the plugin; no tray icon (avoids tray flicker on status checks)
 
-TraySetIcon("C:\WINDOWS\system32\netshell.dll", 104) ; Set the tray icon to a network-related icon from system resources
-
-; Get device name from command line argument, or use default
+; Arguments: 1 = device name, 2 = action (connect | disconnect | status | list)
 deviceName := A_Args.Length > 0 ? A_Args[1] : "AirPods Pro"
-
-; Get action from second argument: "connect" (default) or "disconnect"
 action := A_Args.Length > 1 ? A_Args[2] : "connect"
 
 ; Dynamically loads the Bluetooth Control Panel library to use its functions
 DllCall("LoadLibrary", "str", "Bthprops.cpl", "ptr")
 
-; Desired service state (1 = connect/enable, 0 = disconnect/disable)
+maxRetries := 10 ; Maximum retry attempts to prevent infinite loops
+
+; ---- "list": print the name of every paired device, one per line ----
+if (action = "list")
+{
+    EnumeratePairedDevices(ListCallback)
+    ExitApp(0)
+}
+
+; ---- "status": report whether the target device is currently connected ----
+if (action = "status")
+{
+    state := GetDeviceConnectionState(deviceName)
+    if (state = -1)
+    {
+        FileAppend("ERROR: Target Bluetooth device '" . deviceName . "' not found`n", "*")
+        ExitApp(2)
+    }
+    FileAppend((state ? "CONNECTED" : "DISCONNECTED") . "`n", "*")
+    ExitApp(0)
+}
+
+; ---- "connect" / "disconnect": toggle the audio services ----
 toggleOn := (action = "connect") ? 1 : 0
 
-; Set maximum retry attempts to prevent infinite loops
-maxRetries := 10
-
-; Calculate structure size based on pointer size
-structSize := 24 + A_PtrSize * 2
-
-; Initialize the structure for Bluetooth device search parameters
-BLUETOOTH_DEVICE_SEARCH_PARAMS := Buffer(structSize, 0)
-NumPut("uint", structSize, BLUETOOTH_DEVICE_SEARCH_PARAMS, 0) ; Set the size of the structure
-NumPut("uint", 1, BLUETOOTH_DEVICE_SEARCH_PARAMS, 4) ; fReturnAuthenticated: return paired devices
-
-; Initialize the structure to hold information about a Bluetooth device
-BLUETOOTH_DEVICE_INFO := Buffer(560, 0)
-NumPut("uint", 560, BLUETOOTH_DEVICE_INFO, 0) ; Set the size of the structure
-
-; Loop through all found Bluetooth devices to find and (dis)connect the specified device
-loop
+device := FindDeviceByName(deviceName)
+if (!device)
 {
-    ; On the first iteration, use BluetoothFindFirstDevice to start the search
-    if (A_Index = 1)
+    FileAppend("ERROR: Target Bluetooth device '" . deviceName . "' not found`n", "*")
+    ExitApp(2)
+}
+
+deviceNameActual := StrGet(device.Ptr + 64, "UTF-16") ; Retrieve the actual name of the device
+
+; Handsfree (HFP): voice communication. Present on headsets/earbuds, absent on speakers.
+hfStatus := ToggleBluetoothService(device, "{0000111e-0000-1000-8000-00805f9b34fb}", toggleOn, maxRetries)
+
+; AudioSink (A2DP): music streaming. Present on virtually all audio output devices.
+asStatus := ToggleBluetoothService(device, "{0000110b-0000-1000-8000-00805f9b34fb}", toggleOn, maxRetries)
+
+; Consider the operation successful if AT LEAST ONE audio profile was toggled.
+; This supports speaker-only devices (e.g. Echo Dot, Bluetooth speakers) that expose
+; only AudioSink, as well as headsets/earbuds that expose both profiles.
+if (hfStatus = "ok" || asStatus = "ok")
+{
+    successMsg := (action = "connect") ? "connected" : "disconnected"
+    FileAppend("SUCCESS: Bluetooth device '" . deviceNameActual . "' " . successMsg . "`n", "*")
+    ExitApp(0)
+}
+
+; Neither profile could be toggled.
+FileAppend("ERROR: Failed to " . action . " '" . deviceNameActual . "' (Handsfree: " . hfStatus . ", AudioSink: " . asStatus . ")`n", "*")
+ExitApp(3)
+
+
+; =====================================================================
+;  Helper functions
+; =====================================================================
+
+; Build a search-params buffer that returns paired (authenticated) devices.
+MakeSearchParams()
+{
+    structSize := 24 + A_PtrSize * 2
+    sp := Buffer(structSize, 0)
+    NumPut("uint", structSize, sp, 0) ; dwSize
+    NumPut("uint", 1, sp, 4)          ; fReturnAuthenticated: return paired devices
+    return sp
+}
+
+; Iterate over every paired device, invoking callback(deviceInfoBuffer) for each.
+EnumeratePairedDevices(callback)
+{
+    sp := MakeSearchParams()
+    di := Buffer(560, 0)
+    NumPut("uint", 560, di, 0)
+
+    foundDevice := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", sp, "ptr", di, "ptr")
+    if !foundDevice
+        return
+    loop
     {
-        foundDevice := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", BLUETOOTH_DEVICE_SEARCH_PARAMS, "ptr", BLUETOOTH_DEVICE_INFO, "ptr")
-        if !foundDevice
-        {
-            FileAppend("ERROR: No bluetooth devices found`n", "*")
-            ExitApp(1)
-        }
+        callback(di)
+        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", foundDevice, "ptr", di)
+            break
     }
-    else
+    DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", foundDevice)
+}
+
+; Callback for "list": print each device name on its own line.
+ListCallback(di)
+{
+    name := StrGet(di.Ptr + 64, "UTF-16")
+    if (name != "")
+        FileAppend(name . "`n", "*")
+}
+
+; Return the BLUETOOTH_DEVICE_INFO buffer for the first device whose name contains
+; targetName, or 0 if none match.
+FindDeviceByName(targetName)
+{
+    sp := MakeSearchParams()
+    di := Buffer(560, 0)
+    NumPut("uint", 560, di, 0)
+
+    foundDevice := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", sp, "ptr", di, "ptr")
+    if !foundDevice
+        return 0
+    match := 0
+    loop
     {
-        ; On subsequent iterations, use BluetoothFindNextDevice to continue the search
-        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", foundDevice, "ptr", BLUETOOTH_DEVICE_INFO)
+        if (InStr(StrGet(di.Ptr + 64, "UTF-16"), targetName))
         {
-            FileAppend("ERROR: Target Bluetooth device '" . deviceName . "' not found`n", "*")
-            ExitApp(2)
+            match := di
+            break
         }
+        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", foundDevice, "ptr", di)
+            break
     }
+    DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", foundDevice)
+    return match
+}
 
-    ; Check if the current device is the target device by comparing its name
-    if (InStr(StrGet(BLUETOOTH_DEVICE_INFO.Ptr + 64, "UTF-16"), deviceName))
-    {
-        deviceNameActual := StrGet(BLUETOOTH_DEVICE_INFO.Ptr + 64, "UTF-16") ; Retrieve the actual name of the device
-
-        ; Handsfree (HFP): voice communication. Present on headsets/earbuds, absent on speakers.
-        hfStatus := ToggleBluetoothService(BLUETOOTH_DEVICE_INFO, "{0000111e-0000-1000-8000-00805f9b34fb}", toggleOn, maxRetries)
-
-        ; AudioSink (A2DP): music streaming. Present on virtually all audio output devices.
-        asStatus := ToggleBluetoothService(BLUETOOTH_DEVICE_INFO, "{0000110b-0000-1000-8000-00805f9b34fb}", toggleOn, maxRetries)
-
-        ; Consider the operation successful if AT LEAST ONE audio profile was toggled.
-        ; This supports speaker-only devices (e.g. Echo Dot, Bluetooth speakers) that expose
-        ; only AudioSink, as well as headsets/earbuds that expose both profiles.
-        if (hfStatus = "ok" || asStatus = "ok")
-        {
-            successMsg := (action = "connect") ? "connected" : "disconnected"
-            FileAppend("SUCCESS: Bluetooth device '" . deviceNameActual . "' " . successMsg . "`n", "*")
-            ExitApp(0)
-        }
-
-        ; Neither profile could be toggled.
-        FileAppend("ERROR: Failed to " . action . " '" . deviceNameActual . "' (Handsfree: " . hfStatus . ", AudioSink: " . asStatus . ")`n", "*")
-        ExitApp(3)
-    }
+; Return 1 if the named device is connected, 0 if disconnected, -1 if not found.
+GetDeviceConnectionState(targetName)
+{
+    device := FindDeviceByName(targetName)
+    if (!device)
+        return -1
+    return NumGet(device, 20, "int") ? 1 : 0 ; fConnected is at offset 20 of BLUETOOTH_DEVICE_INFO
 }
 
 ; Toggle a single Bluetooth service to the desired state.

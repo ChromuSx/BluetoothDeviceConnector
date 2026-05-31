@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5.0] - 2026-05-31
+
+### Fixed
+- **Speaker-only devices now connect** (e.g. Amazon Echo Dot, Bluetooth speakers). Connecting no longer aborts when a device lacks the Handsfree (HFP) profile; each audio profile is toggled independently and the action succeeds if at least one connects.
+- **Device names with special characters** no longer break the command — the helper executable is now invoked with an argument array instead of a shell string.
+- **Button no longer gets stuck on "Connecting"** when the helper returns unexpected output.
+- Standalone script: added a retry cap that previously allowed an infinite loop on unsupported devices.
+
+### Added
+- **Device picker** in the Property Inspector — choose a paired device from a dropdown instead of typing its exact name.
+- **Live connection state** — the key reflects the device's real connection status when it appears (survives Stream Deck restarts).
+
+### Changed
+- Disabled Node debug mode in the published manifest.
+- Slimmed the packaged plugin to the runtime dependency only.
+
+## [1.0.4.0] - 2025-12-17
+
+### Fixed
+- Resolved disconnect issues and multiple-instance errors for the Marketplace submission.
+
 ## [1.0.1] - 2025-12-06
 
 ### Changed

@@ -37,21 +37,23 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const path = __importStar(require("path"));
 const WebSocketLib = __importStar(require("ws"));
-const execAsync = (0, util_1.promisify)(child_process_1.exec);
+const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 let ws;
 const settingsCache = new Map();
 const connectionState = new Map(); // Track connection state per context
 const executionLock = new Map(); // Prevent concurrent executions per context
 const pluginUUID = 'com.chromusx.bluetooth-connector';
 const connectActionUUID = `${pluginUUID}.connect`;
+// Absolute path to the helper executable, resolved relative to this script
+// (bin/plugin.js) rather than the process working directory, which Stream Deck
+// does not guarantee to be the plugin folder.
+function exePath() {
+    return path.join(__dirname, '..', 'BluetoothConnector.exe');
+}
 function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
     ws = new WebSocketLib.WebSocket(`ws://127.0.0.1:${inPort}`);
     ws.on('open', () => {
-        const registerEvent = {
-            event: inRegisterEvent,
-            uuid: inPluginUUID,
-        };
-        ws.send(JSON.stringify(registerEvent));
+        ws.send(JSON.stringify({ event: inRegisterEvent, uuid: inPluginUUID }));
     });
     ws.on('message', (data) => {
         const message = JSON.parse(data.toString());
@@ -72,11 +74,23 @@ function handleMessage(message) {
         case 'didReceiveSettings':
             if (payload?.settings) {
                 settingsCache.set(context, payload.settings);
+                // Device may have changed in the Property Inspector: refresh the key.
+                syncVisualState(context, payload.settings.deviceName);
             }
             break;
         case 'willAppear':
             if (payload?.settings) {
                 settingsCache.set(context, payload.settings);
+            }
+            // Reflect the device's real connection state on the key.
+            syncVisualState(context, payload?.settings?.deviceName);
+            break;
+        case 'sendToPlugin':
+            // The Property Inspector asks for the list of paired devices.
+            if (payload?.event === 'getDevices') {
+                listDevices().then((devices) => {
+                    sendToPropertyInspector(context, { event: 'deviceList', devices });
+                });
             }
             break;
     }
@@ -87,7 +101,6 @@ async function handleConnectAction(context, settings) {
         logMessage('Action already in progress, ignoring button press');
         return;
     }
-    // Set execution lock
     executionLock.set(context, true);
     const deviceName = settings.deviceName || 'AirPods Pro';
     // Determine action based on current connection state
@@ -96,16 +109,12 @@ async function handleConnectAction(context, settings) {
     // Set to "Connecting" state (state 1)
     setState(context, 1);
     try {
-        const pluginPath = process.cwd();
-        const exePath = path.join(pluginPath, 'BluetoothConnector.exe');
-        const command = `"${exePath}" "${deviceName}" "${action}"`;
-        const { stdout, stderr } = await execAsync(command, {
+        const { stdout } = await execFileAsync(exePath(), [deviceName, action], {
             timeout: 30000,
         });
         if (stdout.includes('SUCCESS')) {
             // Update connection state
             connectionState.set(context, !isConnected);
-            // Set appropriate visual state
             if (!isConnected) {
                 // Just connected - show connected state
                 setState(context, 2);
@@ -113,7 +122,6 @@ async function handleConnectAction(context, settings) {
                 showOK(context);
                 playSound('success');
                 logMessage(`Connected to ${deviceName}`);
-                // Clear title after 2 seconds
                 setTimeout(() => setTitle(context, ''), 2000);
             }
             else {
@@ -123,41 +131,81 @@ async function handleConnectAction(context, settings) {
                 showOK(context);
                 playSound('success');
                 logMessage(`Disconnected from ${deviceName}`);
-                // Clear title after 2 seconds
                 setTimeout(() => setTitle(context, ''), 2000);
             }
         }
-        else if (stderr || stdout.includes('ERROR')) {
-            // Set to "Error" state (state 3)
-            setState(context, 3);
-            setTitle(context, 'Error!');
-            showAlert(context);
-            playSound('error');
-            logMessage(`Failed to ${action}: ${stdout || stderr}`);
-            // Return to previous state after 3 seconds, clear title
-            setTimeout(() => {
-                setState(context, isConnected ? 2 : 0);
-                setTitle(context, '');
-            }, 3000);
+        else {
+            // Exited 0 but without a SUCCESS marker: treat as an error so the button
+            // never gets stuck on the "Connecting" state.
+            showError(context, isConnected, `Unexpected result while trying to ${action} ${deviceName}: ${stdout}`);
         }
     }
     catch (error) {
-        // Set to "Error" state (state 3)
-        setState(context, 3);
-        setTitle(context, 'Error!');
-        showAlert(context);
-        playSound('error');
-        logMessage(`Error: ${error.message}`);
-        // Return to previous state after 3 seconds, clear title
-        setTimeout(() => {
-            setState(context, isConnected ? 2 : 0);
-            setTitle(context, '');
-        }, 3000);
+        // Non-zero exit: device not found, both profiles failed, timeout, etc.
+        const detail = error?.stdout || error?.message || 'unknown error';
+        showError(context, isConnected, `Failed to ${action} ${deviceName}: ${detail}`);
     }
     finally {
         // Always release the execution lock
         executionLock.set(context, false);
     }
+}
+// Show the error state, then revert to the previous state after 3 seconds.
+function showError(context, wasConnected, logText) {
+    setState(context, 3);
+    setTitle(context, 'Error!');
+    showAlert(context);
+    playSound('error');
+    logMessage(logText);
+    setTimeout(() => {
+        setState(context, wasConnected ? 2 : 0);
+        setTitle(context, '');
+    }, 3000);
+}
+// Query the executable for the list of paired Bluetooth device names.
+async function listDevices() {
+    try {
+        const { stdout } = await execFileAsync(exePath(), ['-', 'list'], { timeout: 15000 });
+        return stdout
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+    }
+    catch (error) {
+        logMessage(`Failed to list devices: ${error?.message || error}`);
+        return [];
+    }
+}
+// Query the executable for the current connection state of a device.
+async function getDeviceStatus(deviceName) {
+    try {
+        const { stdout } = await execFileAsync(exePath(), [deviceName, 'status'], { timeout: 15000 });
+        // Order matters: the string "DISCONNECTED" contains the substring "CONNECTED".
+        if (stdout.includes('DISCONNECTED'))
+            return 'disconnected';
+        if (stdout.includes('CONNECTED'))
+            return 'connected';
+        return 'unknown';
+    }
+    catch {
+        return 'unknown';
+    }
+}
+// On appear (or after a settings change), reflect the device's real connection
+// state on the key so the icon is correct even after a Stream Deck restart.
+async function syncVisualState(context, deviceName) {
+    if (!deviceName)
+        return;
+    const status = await getDeviceStatus(deviceName);
+    if (status === 'connected') {
+        connectionState.set(context, true);
+        setState(context, 2);
+    }
+    else if (status === 'disconnected') {
+        connectionState.set(context, false);
+        setState(context, 0);
+    }
+    // 'unknown' (e.g. device not currently paired): leave the key as-is.
 }
 function setState(context, state) {
     sendEvent('setState', context, { state });
@@ -173,6 +221,14 @@ function showAlert(context) {
 }
 function logMessage(message) {
     sendEvent('logMessage', undefined, { message });
+}
+function sendToPropertyInspector(context, payload) {
+    ws.send(JSON.stringify({
+        event: 'sendToPropertyInspector',
+        action: connectActionUUID,
+        context,
+        payload,
+    }));
 }
 function playSound(soundType) {
     // Play Windows system sounds using PowerShell
