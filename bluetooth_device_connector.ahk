@@ -7,8 +7,11 @@ deviceName := "AirPods Pro" ; Define the name of the Bluetooth device to connect
 ; Dynamically loads the Bluetooth Control Panel library to use its functions
 DllCall("LoadLibrary", "str", "Bthprops.cpl", "ptr")
 
-; Initialize the toggle state variable and set it to 1 to represent an enabled state
-toggle := toggleOn := 1
+; Desired service state (1 = enable/connect)
+toggleOn := 1
+
+; Set maximum retry attempts to prevent infinite loops
+maxRetries := 10
 
 ; Calculate structure size based on pointer size
 structSize := 24 + A_PtrSize * 2
@@ -16,7 +19,7 @@ structSize := 24 + A_PtrSize * 2
 ; Initialize the structure for Bluetooth device search parameters with appropriate size and default values
 BLUETOOTH_DEVICE_SEARCH_PARAMS := Buffer(structSize, 0)
 NumPut("uint", structSize, BLUETOOTH_DEVICE_SEARCH_PARAMS, 0) ; Set the size of the structure
-NumPut("uint", 1, BLUETOOTH_DEVICE_SEARCH_PARAMS, 4) ; Set the search to return authenticated devices
+NumPut("uint", 1, BLUETOOTH_DEVICE_SEARCH_PARAMS, 4) ; fReturnAuthenticated: return paired devices
 
 ; Initialize the structure to hold information about a Bluetooth device with appropriate size
 BLUETOOTH_DEVICE_INFO := Buffer(560, 0)
@@ -49,43 +52,51 @@ loop
     {
         deviceNameActual := StrGet(BLUETOOTH_DEVICE_INFO.Ptr + 64, "UTF-16") ; Retrieve the actual name of the device
 
-        ; Prepare the Handsfree service class ID for enabling/disabling the service
-        Handsfree := Buffer(16)
-        DllCall("ole32\CLSIDFromString", "wstr", "{0000111e-0000-1000-8000-00805f9b34fb}", "ptr", Handsfree)
+        ; Handsfree (HFP): voice communication. Present on headsets/earbuds, absent on speakers.
+        hfStatus := ToggleBluetoothService(BLUETOOTH_DEVICE_INFO, "{0000111e-0000-1000-8000-00805f9b34fb}", toggleOn, maxRetries)
 
-        ; Prepare the AudioSink service class ID for enabling/disabling the service
-        AudioSink := Buffer(16)
-        DllCall("ole32\CLSIDFromString", "wstr", "{0000110b-0000-1000-8000-00805f9b34fb}", "ptr", AudioSink)
+        ; AudioSink (A2DP): music streaming. Present on virtually all audio output devices.
+        asStatus := ToggleBluetoothService(BLUETOOTH_DEVICE_INFO, "{0000110b-0000-1000-8000-00805f9b34fb}", toggleOn, maxRetries)
 
-        ; Toggle the Handsfree service state for voice communication
-        loop
+        ; Consider the operation successful if AT LEAST ONE audio profile was toggled.
+        ; This supports speaker-only devices (e.g. Echo Dot, Bluetooth speakers) that expose
+        ; only AudioSink, as well as headsets/earbuds that expose both profiles.
+        if (hfStatus = "ok" || asStatus = "ok")
+            MsgBox("Bluetooth device " . deviceNameActual . " connected") ; Notify the user that the device has been connected
+        else
+            MsgBox("Failed to connect " . deviceNameActual . " (Handsfree: " . hfStatus . ", AudioSink: " . asStatus . ")")
+        break
+    }
+}
+
+; Toggle a single Bluetooth service to the desired state.
+; Returns: "ok" (reached desired state), "absent" (device lacks this profile),
+;          or "fail" (retries exhausted without success).
+ToggleBluetoothService(deviceInfo, serviceGuidStr, toggleOn, maxRetries)
+{
+    ; Convert the service class GUID string into a binary CLSID
+    serviceGuid := Buffer(16)
+    DllCall("ole32\CLSIDFromString", "wstr", serviceGuidStr, "ptr", serviceGuid)
+
+    toggle := toggleOn
+    retryCount := 0
+    loop
+    {
+        hr := DllCall("Bthprops.cpl\BluetoothSetServiceState", "ptr", 0, "ptr", deviceInfo, "ptr", serviceGuid, "int", toggle)
+
+        if (hr = 0) ; Operation succeeded
         {
-            hr := DllCall("Bthprops.cpl\BluetoothSetServiceState", "ptr", 0, "ptr", BLUETOOTH_DEVICE_INFO, "ptr", Handsfree, "int", toggle)
-            if (hr = 0) ; If the operation was successful
-            {
-                if (toggle = toggleOn)
-                    break ; Exit the loop if the service has been successfully toggled
-                toggle := !toggle ; Toggle the state for the next attempt
-            }
-            if (hr = 87) ; Error code 87 indicates a parameter error, so toggle the state and retry
-                toggle := !toggle
+            if (toggle = toggleOn)
+                return "ok" ; Reached the desired state
+            toggle := !toggle ; Reached intermediate state, flip toward the desired one
         }
+        else if (hr = 87) ; ERROR_INVALID_PARAMETER: known quirk, flip the state and retry
+            toggle := !toggle
+        else if (hr = 1060) ; ERROR_SERVICE_DOES_NOT_EXIST: device does not expose this profile
+            return "absent"
 
-        ; Toggle the AudioSink service state for music streaming
-        loop
-        {
-            hr := DllCall("Bthprops.cpl\BluetoothSetServiceState", "ptr", 0, "ptr", BLUETOOTH_DEVICE_INFO, "ptr", AudioSink, "int", toggle)
-            if (hr = 0) ; If the operation was successful
-            {
-                if (toggle = toggleOn)
-                {
-                    MsgBox("Bluetooth device " . deviceNameActual . " connected") ; Notify the user that the device has been connected
-                    break 2 ; Exit both loops
-                }
-                toggle := !toggle ; Toggle the state for the next attempt
-            }
-            if (hr = 87) ; Error code 87 indicates a parameter error, so toggle the state and retry
-                toggle := !toggle
-        }
+        retryCount++
+        if (retryCount >= maxRetries)
+            return "fail"
     }
 }
