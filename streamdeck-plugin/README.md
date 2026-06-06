@@ -14,12 +14,15 @@ Perfect for streamers, content creators, and anyone who frequently switches betw
 ## Key Features
 
 - **One-Click Connect/Disconnect** - Toggle your Bluetooth device connection with a single button press
+- **Device Picker** - Choose a paired device from a dropdown in the Property Inspector — no need to type the exact name
+- **Speaker-Only Device Support** - Works with speakers and devices that lack the Handsfree (HFP) profile, such as Amazon Echo Dot and Bluetooth speakers
+- **Live Connection State** - The button icon reflects the device's real connection status when it appears, surviving Stream Deck restarts
 - **Visual State Indicators** - See the connection status at a glance:
   - 🔵 **Disconnected** - Default blue icon
   - 🟠 **Connecting** - Orange dot while connecting
   - 🟢 **Connected** - Green dot when connected
   - 🔴 **Error** - Red dot if connection fails
-- **Audio Feedback** - Hear confirmation sounds for success and errors
+- **Audio Feedback** - Hear Windows system sounds for success and errors
 - **Text Notifications** - Button displays status text ("Connected!", "Disconnected!", "Error!")
 - **Multi-Device Support** - Add multiple buttons for different Bluetooth devices
 
@@ -35,7 +38,7 @@ Perfect for streamers, content creators, and anyone who frequently switches betw
 ## Quick Start
 
 1. **Drag & Drop** - Add the "Connect Bluetooth Device" action to any Stream Deck button
-2. **Configure** - Enter your Bluetooth device name (e.g., "AirPods Pro", "Sony WH-1000XM4")
+2. **Configure** - Pick your device from the dropdown in the Property Inspector, or type its name manually (e.g., "AirPods Pro", "Sony WH-1000XM4")
 3. **Press & Connect** - That's it! Your device connects instantly
 
 ## Use Cases

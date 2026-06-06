@@ -42,9 +42,11 @@ This project includes an **official Stream Deck plugin** that lets you connect y
 4. Configure your device name and connect instantly!
 
 ### Features
-- ✅ One-click Bluetooth connection
-- ⚙️ Configurable device names
-- 🎯 Visual feedback (success/error indicators)
+- ✅ One-click connect/disconnect toggle
+- 🔍 Device picker — choose a paired device from a dropdown in the Property Inspector
+- 🔊 Speaker-only device support (Amazon Echo Dot, Bluetooth speakers, and devices without HFP)
+- 📡 Live connection state — button icon stays in sync after Stream Deck restarts
+- 🎯 Visual feedback (Disconnected / Connecting / Connected / Error states)
 - 🚀 Fast and lightweight
 
 [→ Learn more about the Stream Deck plugin](streamdeck-plugin/)
@@ -57,7 +59,7 @@ This project includes an **official Stream Deck plugin** that lets you connect y
 
 ## How to Use 🚀
 1. **Install AutoHotkey v2**: Make sure AutoHotkey v2 is installed.
-2. **Copy the code**: Copy the script code into `BluetoothDeviceConnector.ahk`.
+2. **Copy the code**: Copy the script code into `bluetooth_device_connector.ahk`.
 3. **Run the script**: Double-click the `.ahk` file to run the script.
 
 ### Configuration ⚙️
