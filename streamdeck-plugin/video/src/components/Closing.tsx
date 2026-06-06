@@ -1,60 +1,14 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Img,
   interpolate,
   spring,
+  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
 import { COLORS, FONT } from "../theme";
-
-const ClosingLogo: React.FC = () => (
-  <svg width="180" height="180" viewBox="0 0 180 180">
-    <defs>
-      <linearGradient id="logoTile" x1="30" y1="18" x2="150" y2="162">
-        <stop offset="0" stopColor="#182536" />
-        <stop offset="1" stopColor="#071019" />
-      </linearGradient>
-      <linearGradient id="logoBlue" x1="66" y1="46" x2="112" y2="134">
-        <stop offset="0" stopColor="#39b8ff" />
-        <stop offset="1" stopColor="#0082fc" />
-      </linearGradient>
-    </defs>
-    <rect
-      x="0"
-      y="0"
-      width="180"
-      height="180"
-      rx="38"
-      fill="url(#logoTile)"
-    />
-    <circle cx="90" cy="88" r="58" fill="rgba(0,130,252,0.14)" />
-    <path
-      d="M58 84V70c0-28 18-45 43-45 23 0 41 17 41 45v14"
-      fill="none"
-      stroke="#33516a"
-      strokeWidth="9"
-      strokeLinecap="round"
-    />
-    <rect x="42" y="76" width="26" height="48" rx="10" fill="#33516a" />
-    <rect x="132" y="76" width="26" height="48" rx="10" fill="#33516a" />
-    <path
-      d="M90 34v112l34-28-68-56h68L90 34Z"
-      fill="none"
-      stroke="url(#logoBlue)"
-      strokeWidth="9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M137 66h22l-13 28h17l-31 38 10-30h-17l12-36Z"
-      fill="#385973"
-      stroke="#4f6d86"
-      strokeWidth="2"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 
 export const Closing: React.FC = () => {
   const frame = useCurrentFrame();
@@ -92,15 +46,23 @@ export const Closing: React.FC = () => {
       >
         <div
           style={{
-            width: 180,
-            height: 180,
-            borderRadius: 38,
+            width: 286,
+            height: 286,
+            borderRadius: 40,
             overflow: "hidden",
             transform: `scale(${iconScale})`,
             boxShadow: "0 26px 60px rgba(20,40,80,0.28)",
+            background: "#02070b",
           }}
         >
-          <ClosingLogo />
+          <Img
+            src={staticFile("logo.png")}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
         </div>
 
         <div
