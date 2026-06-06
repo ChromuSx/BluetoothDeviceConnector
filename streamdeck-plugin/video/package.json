@@ -1,0 +1,21 @@
+{
+  "name": "bluetooth-connector-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marketplace promo video for the Bluetooth Device Connector Stream Deck plugin",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render BluetoothPromo out/promo.mp4 --crf=23",
+    "thumbnail": "remotion still BluetoothThumbnail out/thumbnail.png"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "typescript": "^5.4.5"
+  }
+}
