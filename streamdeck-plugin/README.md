@@ -1,8 +1,20 @@
 # Bluetooth Device Connector - Stream Deck Plugin
 
+<div align="center">
+  <img src="marketplace/gallery-hero.png" alt="Bluetooth Device Connector — switch Bluetooth audio instantly from your Stream Deck" width="840">
+</div>
+
 **Eliminate the hassle of navigating Windows Bluetooth settings!** Connect your Bluetooth devices with a single button press on your Elgato Stream Deck.
 
 Perfect for streamers, content creators, and anyone who frequently switches between Bluetooth headphones, speakers, microphones, and other peripherals. No more interrupting your workflow to dig through Windows settings—just press a button and go!
+
+## See It in Action
+
+<div align="center">
+  <img src="marketplace/promo-preview.gif" alt="Connecting a Bluetooth device from the Stream Deck" width="600">
+  <br><br>
+  <a href="marketplace/promo.mp4"><b>▶ Watch the full 27-second promo</b></a>
+</div>
 
 ## Why Use This Plugin?
 
@@ -26,6 +38,18 @@ Perfect for streamers, content creators, and anyone who frequently switches betw
 - **Text Notifications** - Button displays status text ("Connected!", "Disconnected!", "Error!")
 - **Multi-Device Support** - Add multiple buttons for different Bluetooth devices
 
+<div align="center">
+  <img src="com.chromusx.bluetooth-connector.sdPlugin/imgs/key-disconnected@2x.png" width="84" alt="Disconnected">
+  &nbsp;&nbsp;
+  <img src="com.chromusx.bluetooth-connector.sdPlugin/imgs/key-connecting@2x.png" width="84" alt="Connecting">
+  &nbsp;&nbsp;
+  <img src="com.chromusx.bluetooth-connector.sdPlugin/imgs/key-connected@2x.png" width="84" alt="Connected">
+  &nbsp;&nbsp;
+  <img src="com.chromusx.bluetooth-connector.sdPlugin/imgs/key-error@2x.png" width="84" alt="Error">
+  <br>
+  <sub>Disconnected · Connecting · Connected · Error</sub>
+</div>
+
 ## Installation
 
 ### From Elgato Marketplace _(recommended)_
@@ -46,6 +70,12 @@ Perfect for streamers, content creators, and anyone who frequently switches betw
 1. **Drag & Drop** - Add the "Connect Bluetooth Device" action to any Stream Deck button
 2. **Configure** - Pick your device from the dropdown in the Property Inspector, or type its name manually (e.g., "AirPods Pro", "Sony WH-1000XM4")
 3. **Press & Connect** - That's it! Your device connects instantly
+
+<div align="center">
+  <img src="marketplace/gallery-property-inspector.png" alt="Device picker in the Property Inspector" width="640">
+  <br>
+  <sub>Pick any paired device from the dropdown — no typing required</sub>
+</div>
 
 ## Use Cases
 
