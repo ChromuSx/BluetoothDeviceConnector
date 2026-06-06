@@ -28,6 +28,12 @@ Perfect for streamers, content creators, and anyone who frequently switches betw
 
 ## Installation
 
+### From Elgato Marketplace _(recommended)_
+
+1. Open the [Elgato Marketplace page](https://marketplace.elgato.com/product/bluetooth-device-connector-d7e642fc-1199-4ca0-9849-e303281dd07d)
+2. Click **Get** — Stream Deck installs the plugin automatically
+3. Find "Bluetooth Device Connector" in your Stream Deck actions list
+
 ### From Release Package
 
 1. Download `com.chromusx.bluetooth-connector.streamDeckPlugin` from the [latest release](https://github.com/ChromuSx/BluetoothDeviceConnector/releases)

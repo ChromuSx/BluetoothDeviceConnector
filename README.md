@@ -35,11 +35,16 @@
 
 This project includes an **official Stream Deck plugin** that lets you connect your Bluetooth devices with a single button press!
 
+<div align="center">
+  <a href="https://marketplace.elgato.com/product/bluetooth-device-connector-d7e642fc-1199-4ca0-9849-e303281dd07d">
+    <img src="https://img.shields.io/badge/Elgato%20Marketplace-Get%20Plugin-black?style=for-the-badge&logo=elgato&logoColor=white" alt="Elgato Marketplace">
+  </a>
+</div>
+
 ### Quick Start
-1. Navigate to `streamdeck-plugin/` directory
-2. Follow the [Stream Deck Plugin README](streamdeck-plugin/README.md) for installation
-3. Add the "Connect Bluetooth Device" action to your Stream Deck
-4. Configure your device name and connect instantly!
+1. Install directly from the [Elgato Marketplace](https://marketplace.elgato.com/product/bluetooth-device-connector-d7e642fc-1199-4ca0-9849-e303281dd07d) or download from [GitHub Releases](https://github.com/ChromuSx/BluetoothDeviceConnector/releases/latest)
+2. Add the "Connect Bluetooth Device" action to your Stream Deck
+3. Pick your device from the dropdown and connect instantly!
 
 ### Features
 - ✅ One-click connect/disconnect toggle
