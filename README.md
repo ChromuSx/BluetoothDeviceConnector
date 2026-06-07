@@ -13,6 +13,7 @@
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
   <img src="https://img.shields.io/badge/Version-1.0.5-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/github/downloads/ChromuSx/BluetoothDeviceConnector/total?style=for-the-badge&logo=github" alt="Downloads">
   <img src="https://img.shields.io/github/stars/ChromuSx/BluetoothDeviceConnector?style=for-the-badge" alt="Stars">
 </p>
 <p align="center">
