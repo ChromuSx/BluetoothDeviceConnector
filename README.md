@@ -41,11 +41,9 @@ This project includes an **official Stream Deck plugin** that lets you connect y
   </a>
 </div>
 
-<div align="center">
-  <img src="streamdeck-plugin/marketplace/promo-preview.gif" alt="Bluetooth Device Connector demo" width="640">
-  <br>
-  <a href="streamdeck-plugin/marketplace/promo.mp4"><b>▶ Watch the full promo</b></a>
-</div>
+https://github.com/user-attachments/assets/05e95be0-e882-46ef-b7d7-b2d59a091051
+
+<sub>▶ Press play for sound. Not rendering (e.g. outside GitHub)? <a href="streamdeck-plugin/marketplace/promo.mp4">Download the MP4</a>.</sub>
 
 ### Quick Start
 1. Install directly from the [Elgato Marketplace](https://marketplace.elgato.com/product/bluetooth-device-connector-d7e642fc-1199-4ca0-9849-e303281dd07d) or download from [GitHub Releases](https://github.com/ChromuSx/BluetoothDeviceConnector/releases/latest)

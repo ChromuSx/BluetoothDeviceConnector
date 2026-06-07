@@ -10,11 +10,9 @@ Perfect for streamers, content creators, and anyone who frequently switches betw
 
 ## See It in Action
 
-<div align="center">
-  <img src="marketplace/promo-preview.gif" alt="Connecting a Bluetooth device from the Stream Deck" width="600">
-  <br><br>
-  <a href="marketplace/promo.mp4"><b>▶ Watch the full 27-second promo</b></a>
-</div>
+https://github.com/user-attachments/assets/05e95be0-e882-46ef-b7d7-b2d59a091051
+
+<sub>▶ Press play for sound. Not rendering (e.g. outside GitHub)? <a href="marketplace/promo.mp4">Download the MP4</a>.</sub>
 
 ## Why Use This Plugin?
 
