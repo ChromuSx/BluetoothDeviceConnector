@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0.0-beta.1] - 2026-07-12
+## [1.1.0.1-beta.2] - 2026-07-12
+
+### Fixed
+- Include the `ws` runtime dependency in CI-built plugin bundles. Beta 1 could not start on either Windows or macOS and left the Property Inspector on “Detecting devices…”.
 
 ### Added
 - Experimental macOS 13+ support for the Stream Deck plugin through a native universal Swift helper.
