@@ -3,7 +3,7 @@
 	"Name": "Bluetooth Device Connector",
 	"Version": "1.0.5.0",
 	"Author": "chromusx",
-	"Description": "Eliminate the hassle of navigating Windows Bluetooth settings! Connect or disconnect your Bluetooth devices instantly with a single button press. Perfect for streamers, content creators, and multitaskers who frequently switch between headphones, speakers, microphones, and other Bluetooth peripherals. Features real-time visual status indicators, audio feedback, and seamless multi-device support—all without interrupting your workflow.",
+	"Description": "Eliminate the hassle of navigating Bluetooth settings! Connect or disconnect your Bluetooth devices instantly with a single button press. Perfect for streamers, content creators, and multitaskers who frequently switch between headphones, speakers, microphones, and other Bluetooth peripherals. Features real-time visual status indicators, audio feedback, and seamless multi-device support—all without interrupting your workflow.",
 	"URL": "https://github.com/ChromuSx/BluetoothDeviceConnector",
 	"Icon": "imgs/plugin-icon",
 	"CodePath": "bin/plugin.js",
@@ -16,6 +16,10 @@
 		{
 			"Platform": "windows",
 			"MinimumVersion": "10"
+		},
+		{
+			"Platform": "mac",
+			"MinimumVersion": "13"
 		}
 	],
 	"Software": {

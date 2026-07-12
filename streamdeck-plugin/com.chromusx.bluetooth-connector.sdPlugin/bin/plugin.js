@@ -44,11 +44,15 @@ const connectionState = new Map(); // Track connection state per context
 const executionLock = new Map(); // Prevent concurrent executions per context
 const pluginUUID = 'com.chromusx.bluetooth-connector';
 const connectActionUUID = `${pluginUUID}.connect`;
-// Absolute path to the helper executable, resolved relative to this script
-// (bin/plugin.js) rather than the process working directory, which Stream Deck
-// does not guarantee to be the plugin folder.
-function exePath() {
-    return path.join(__dirname, '..', 'BluetoothConnector.exe');
+// Resolve the platform-specific native helper relative to bin/plugin.js.
+function helperPath() {
+    if (process.platform === 'win32') {
+        return path.join(__dirname, '..', 'BluetoothConnector.exe');
+    }
+    if (process.platform === 'darwin') {
+        return path.join(__dirname, '..', 'BluetoothConnectorMac');
+    }
+    throw new Error(`Unsupported platform: ${process.platform}`);
 }
 function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
     ws = new WebSocketLib.WebSocket(`ws://127.0.0.1:${inPort}`);
@@ -109,7 +113,7 @@ async function handleConnectAction(context, settings) {
     // Set to "Connecting" state (state 1)
     setState(context, 1);
     try {
-        const { stdout } = await execFileAsync(exePath(), [deviceName, action], {
+        const { stdout } = await execFileAsync(helperPath(), [deviceName, action], {
             timeout: 30000,
         });
         if (stdout.includes('SUCCESS')) {
@@ -165,7 +169,7 @@ function showError(context, wasConnected, logText) {
 // Query the executable for the list of paired Bluetooth device names.
 async function listDevices() {
     try {
-        const { stdout } = await execFileAsync(exePath(), ['-', 'list'], { timeout: 15000 });
+        const { stdout } = await execFileAsync(helperPath(), ['-', 'list'], { timeout: 15000 });
         return stdout
             .split(/\r?\n/)
             .map((line) => line.trim())
@@ -179,7 +183,7 @@ async function listDevices() {
 // Query the executable for the current connection state of a device.
 async function getDeviceStatus(deviceName) {
     try {
-        const { stdout } = await execFileAsync(exePath(), [deviceName, 'status'], { timeout: 15000 });
+        const { stdout } = await execFileAsync(helperPath(), [deviceName, 'status'], { timeout: 15000 });
         // Order matters: the string "DISCONNECTED" contains the substring "CONNECTED".
         if (stdout.includes('DISCONNECTED'))
             return 'disconnected';
@@ -231,11 +235,19 @@ function sendToPropertyInspector(context, payload) {
     }));
 }
 function playSound(soundType) {
-    // Play Windows system sounds using PowerShell
-    const soundCommand = soundType === 'success'
-        ? '[System.Media.SystemSounds]::Asterisk.Play()'
-        : '[System.Media.SystemSounds]::Exclamation.Play()';
-    (0, child_process_1.exec)(`powershell -Command "${soundCommand}"`, (error) => {
+    const command = process.platform === 'darwin' ? '/usr/bin/afplay' : 'powershell.exe';
+    const args = process.platform === 'darwin'
+        ? [soundType === 'success'
+                ? '/System/Library/Sounds/Glass.aiff'
+                : '/System/Library/Sounds/Basso.aiff']
+        : [
+            '-NoProfile',
+            '-Command',
+            soundType === 'success'
+                ? '[System.Media.SystemSounds]::Asterisk.Play()'
+                : '[System.Media.SystemSounds]::Exclamation.Play()',
+        ];
+    (0, child_process_1.execFile)(command, args, (error) => {
         if (error) {
             logMessage(`Failed to play sound: ${error.message}`);
         }

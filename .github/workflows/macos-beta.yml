@@ -1,0 +1,45 @@
+name: macOS beta
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos-beta:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: streamdeck-plugin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test macOS Bluetooth helper
+        run: swift test --package-path macos-helper
+
+      - name: Build universal macOS Bluetooth helper
+        run: |
+          swift build --package-path macos-helper -c release --arch arm64 --arch x86_64
+          cp "$(swift build --package-path macos-helper -c release --arch arm64 --arch x86_64 --show-bin-path)/BluetoothConnectorMac" com.chromusx.bluetooth-connector.sdPlugin/BluetoothConnectorMac
+          chmod 755 com.chromusx.bluetooth-connector.sdPlugin/BluetoothConnectorMac
+          lipo -info com.chromusx.bluetooth-connector.sdPlugin/BluetoothConnectorMac
+          codesign --force --sign - com.chromusx.bluetooth-connector.sdPlugin/BluetoothConnectorMac
+
+      - name: Build Stream Deck plugin
+        run: |
+          npm ci
+          npm run build
+
+      - name: Create beta archive
+        run: ditto -c -k --keepParent com.chromusx.bluetooth-connector.sdPlugin bluetooth-connector-macos-beta.streamDeckPlugin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bluetooth-connector-macos-beta
+          path: streamdeck-plugin/bluetooth-connector-macos-beta.streamDeckPlugin
+          if-no-files-found: error

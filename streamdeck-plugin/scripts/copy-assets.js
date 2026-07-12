@@ -10,7 +10,7 @@ console.log('Plugin directory:', sdPluginDir);
 // Verify critical files exist
 const criticalFiles = [
   'bin/plugin.js',
-  'BluetoothConnector.exe',
+  process.platform === 'darwin' ? 'BluetoothConnectorMac' : 'BluetoothConnector.exe',
   'manifest.json',
   'ui/property-inspector.html'
 ];

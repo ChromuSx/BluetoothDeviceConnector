@@ -4,9 +4,9 @@
   <img src="marketplace/gallery-hero.png" alt="Bluetooth Device Connector — switch Bluetooth audio instantly from your Stream Deck" width="840">
 </div>
 
-**Eliminate the hassle of navigating Windows Bluetooth settings!** Connect your Bluetooth devices with a single button press on your Elgato Stream Deck.
+**Eliminate the hassle of navigating Bluetooth settings!** Connect your Bluetooth devices with a single button press on your Elgato Stream Deck.
 
-Perfect for streamers, content creators, and anyone who frequently switches between Bluetooth headphones, speakers, microphones, and other peripherals. No more interrupting your workflow to dig through Windows settings—just press a button and go!
+Perfect for streamers, content creators, and anyone who frequently switches between Bluetooth headphones, speakers, microphones, and other peripherals. No more interrupting your workflow to dig through system settings—just press a button and go!
 
 ## See It in Action
 
@@ -32,7 +32,7 @@ https://github.com/user-attachments/assets/05e95be0-e882-46ef-b7d7-b2d59a091051
   - 🟠 **Connecting** - Orange dot while connecting
   - 🟢 **Connected** - Green dot when connected
   - 🔴 **Error** - Red dot if connection fails
-- **Audio Feedback** - Hear Windows system sounds for success and errors
+- **Audio Feedback** - Hear native system sounds for success and errors
 - **Text Notifications** - Button displays status text ("Connected!", "Disconnected!", "Error!")
 - **Multi-Device Support** - Add multiple buttons for different Bluetooth devices
 
@@ -84,8 +84,26 @@ https://github.com/user-attachments/assets/05e95be0-e882-46ef-b7d7-b2d59a091051
 
 ## Requirements
 
-- **Platform**: Windows 10 or later
+- **Platform**: Windows 10 or later; experimental beta support for macOS 13 or later
 - **Stream Deck Software**: Version 6.9 or later
+
+## macOS Beta
+
+The macOS backend uses Apple's public `IOBluetooth` framework. Every push to `main`
+and every pull request builds a universal Intel/Apple Silicon helper and publishes an
+installable `bluetooth-connector-macos-beta.streamDeckPlugin` workflow artifact.
+
+The CI runner can test compilation and CLI parsing, but it has no paired Bluetooth
+audio hardware. Before publishing macOS support to Marketplace, verify at least:
+
+- paired-device listing and initial key state;
+- connect and disconnect with AirPods or another A2DP headset;
+- a speaker-only device;
+- Intel and Apple Silicon Macs when testers are available.
+
+The CI artifact is ad-hoc signed but not notarized. If Gatekeeper blocks it after
+downloading, the tester may need to remove quarantine from the installed beta. A
+Marketplace release should use the normal Elgato packaging and review flow.
 
 ## License
 
