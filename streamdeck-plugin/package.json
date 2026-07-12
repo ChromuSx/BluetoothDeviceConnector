@@ -1,6 +1,6 @@
 {
   "name": "com.chromusx.bluetooth-connector",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "Stream Deck plugin to connect Bluetooth devices",
   "author": "ChromuSx",
   "license": "MIT",
