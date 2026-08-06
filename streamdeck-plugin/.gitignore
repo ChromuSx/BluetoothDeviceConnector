@@ -1,4 +1,5 @@
 node_modules/
+.native-build/
 .sdPlugin/bin/*.js
 .sdPlugin/bin/*.js.map
 *.log

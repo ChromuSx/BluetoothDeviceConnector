@@ -37,11 +37,18 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const path = __importStar(require("path"));
 const WebSocketLib = __importStar(require("ws"));
+const audio_profile_1 = require("./audio-profile");
+const device_handoff_1 = require("./device-handoff");
 const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 let ws;
 const settingsCache = new Map();
 const connectionState = new Map(); // Track connection state per context
+const needsReconcile = new Set(); // A Windows profile choice must be applied before toggling off.
+const pendingHandoff = new Map(); // Previous target to disconnect on this context's next press.
 const executionLock = new Map(); // Prevent concurrent executions per context
+const stateRevision = new Map(); // Ignore status checks made stale by actions/settings.
+const feedbackRevision = new Map(); // Prevent old UI timers overwriting newer actions/settings.
+const pendingSettingsEchoes = new Map(); // Ignore our own delayed setSettings echoes.
 const pluginUUID = 'com.chromusx.bluetooth-connector';
 const connectActionUUID = `${pluginUUID}.connect`;
 // Resolve the platform-specific native helper relative to bin/plugin.js.
@@ -53,6 +60,12 @@ function helperPath() {
         return path.join(__dirname, '..', 'BluetoothConnectorMac');
     }
     throw new Error(`Unsupported platform: ${process.platform}`);
+}
+// Windows can keep playing through a previously connected Bluetooth endpoint
+// even after the selected device connects successfully. This helper makes the
+// selected device the default Core Audio endpoint and verifies the change.
+function audioRouterPath() {
+    return path.join(__dirname, '..', 'AudioEndpointRouter.exe');
 }
 function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
     ws = new WebSocketLib.WebSocket(`ws://127.0.0.1:${inPort}`);
@@ -77,18 +90,41 @@ function handleMessage(message) {
             break;
         case 'didReceiveSettings':
             if (payload?.settings) {
-                settingsCache.set(context, payload.settings);
-                // Device may have changed in the Property Inspector: refresh the key.
-                syncVisualState(context, payload.settings.deviceName);
+                const incomingSettings = payload.settings;
+                if (consumeSettingsEcho(context, incomingSettings)) {
+                    break;
+                }
+                acceptSettingsSnapshot(context, incomingSettings, false);
             }
             break;
-        case 'willAppear':
+        case 'willAppear': {
+            let appearanceSettings = (payload?.settings || {});
             if (payload?.settings) {
-                settingsCache.set(context, payload.settings);
+                const cachedSettings = settingsCache.get(context);
+                const hasPendingWrite = (pendingSettingsEchoes.get(context)?.length || 0) > 0;
+                if (cachedSettings && hasPendingWrite) {
+                    // A stale appearance event can cross an in-flight setSettings echo.
+                    // Keep the plugin-owned snapshot until Stream Deck acknowledges it.
+                    appearanceSettings = cachedSettings;
+                }
+                else {
+                    settingsCache.set(context, appearanceSettings);
+                }
+                const handoffFromDeviceName = (0, device_handoff_1.resolveHandoffDevice)(appearanceSettings.handoffFromDeviceName, undefined, appearanceSettings.deviceName);
+                if (handoffFromDeviceName) {
+                    pendingHandoff.set(context, handoffFromDeviceName);
+                    needsReconcile.add(context);
+                    connectionState.set(context, false);
+                    invalidatePendingStatus(context);
+                    setState(context, 0);
+                    break;
+                }
+                pendingHandoff.delete(context);
             }
             // Reflect the device's real connection state on the key.
-            syncVisualState(context, payload?.settings?.deviceName);
+            syncVisualState(context, appearanceSettings);
             break;
+        }
         case 'sendToPlugin':
             // The Property Inspector asks for the list of paired devices.
             if (payload?.event === 'getDevices') {
@@ -96,7 +132,90 @@ function handleMessage(message) {
                     sendToPropertyInspector(context, { event: 'deviceList', devices });
                 });
             }
+            else if (payload?.event === 'updateSettings') {
+                applyPropertyInspectorSettings(context, payload.settings || {}, payload.initialSettings || {}, payload.requestId);
+            }
             break;
+    }
+}
+function applyPropertyInspectorSettings(context, publicSettings, initialSettings, requestId) {
+    let currentSettings = settingsCache.get(context);
+    if (!currentSettings) {
+        currentSettings = { ...initialSettings };
+        settingsCache.set(context, currentSettings);
+    }
+    const transition = (0, device_handoff_1.reduceSettingsPatch)(currentSettings, publicSettings, process.platform === 'win32');
+    const nextSettings = transition.settings;
+    if (transition.handoffFromDeviceName) {
+        pendingHandoff.set(context, transition.handoffFromDeviceName);
+    }
+    else {
+        pendingHandoff.delete(context);
+    }
+    if (settingsKey(currentSettings) !== settingsKey(nextSettings)) {
+        invalidateFeedback(context);
+    }
+    settingsCache.set(context, nextSettings);
+    persistSettings(context, nextSettings);
+    if (transition.needsReconcile) {
+        needsReconcile.add(context);
+        connectionState.set(context, false);
+        invalidatePendingStatus(context);
+        setState(context, 0);
+    }
+    else if (transition.shouldSyncVisual) {
+        if (transition.handoffCancelled)
+            needsReconcile.delete(context);
+        syncVisualState(context, nextSettings);
+    }
+    sendAcceptedSettings(context, requestId);
+}
+function acceptSettingsSnapshot(context, incomingSettings, persistAlways) {
+    const previousSettings = settingsCache.get(context);
+    const nextSettings = { ...incomingSettings };
+    const hadPendingHandoff = pendingHandoff.has(context) ||
+        normalizeHandoffName(previousSettings?.handoffFromDeviceName) !== '';
+    const previousDeviceName = previousSettings
+        ? (0, device_handoff_1.normalizeDeviceName)(previousSettings.deviceName)
+        : undefined;
+    const deviceChanged = previousSettings !== undefined &&
+        !(0, device_handoff_1.sameDeviceName)(previousDeviceName, (0, device_handoff_1.normalizeDeviceName)(nextSettings.deviceName));
+    const profileChanged = process.platform === 'win32' &&
+        (0, audio_profile_1.normalizeAudioProfile)(previousSettings?.audioProfile) !==
+            (0, audio_profile_1.normalizeAudioProfile)(nextSettings.audioProfile);
+    const handoffFromDeviceName = (0, device_handoff_1.resolveHandoffDevice)(nextSettings.handoffFromDeviceName || previousSettings?.handoffFromDeviceName, deviceChanged ? previousDeviceName : undefined, nextSettings.deviceName);
+    if (handoffFromDeviceName) {
+        nextSettings.handoffFromDeviceName = handoffFromDeviceName;
+        pendingHandoff.set(context, handoffFromDeviceName);
+    }
+    else {
+        delete nextSettings.handoffFromDeviceName;
+        pendingHandoff.delete(context);
+    }
+    if (previousSettings && settingsKey(previousSettings) !== settingsKey(nextSettings)) {
+        invalidateFeedback(context);
+    }
+    settingsCache.set(context, nextSettings);
+    if (persistAlways ||
+        normalizeHandoffName(incomingSettings.handoffFromDeviceName) !==
+            normalizeHandoffName(nextSettings.handoffFromDeviceName)) {
+        persistSettings(context, nextSettings);
+    }
+    if (handoffFromDeviceName || profileChanged) {
+        // Editing settings never touches hardware. The next key press performs the
+        // exclusive handoff or applies the selected Windows audio profile.
+        needsReconcile.add(context);
+        connectionState.set(context, false);
+        invalidatePendingStatus(context);
+        setState(context, 0);
+    }
+    else if (deviceChanged || hadPendingHandoff) {
+        if (hadPendingHandoff) {
+            // Returning to the original device before pressing the key cancels the
+            // pending handoff. A2DP sync may add reconciliation back when needed.
+            needsReconcile.delete(context);
+        }
+        syncVisualState(context, nextSettings);
     }
 }
 async function handleConnectAction(context, settings) {
@@ -106,51 +225,116 @@ async function handleConnectAction(context, settings) {
         return;
     }
     executionLock.set(context, true);
-    const deviceName = settings.deviceName || 'AirPods Pro';
-    // Determine action based on current connection state
+    invalidatePendingStatus(context);
+    invalidateFeedback(context);
+    // Settings updates are serialized through this plugin. Prefer the cache so
+    // a delayed keyDown payload can never act on a device the PI already changed.
+    settings = settingsCache.get(context) || settings;
+    if (!settingsCache.has(context))
+        settingsCache.set(context, settings);
+    const deviceName = (0, device_handoff_1.normalizeDeviceName)(settings.deviceName);
+    const audioProfile = (0, audio_profile_1.normalizeAudioProfile)(settings.audioProfile);
+    const operationSettingsKey = settingsKey(settings);
+    const handoffFromDeviceName = pendingHandoff.get(context) ||
+        (0, device_handoff_1.resolveHandoffDevice)(settings.handoffFromDeviceName, undefined, deviceName);
+    if (handoffFromDeviceName) {
+        pendingHandoff.set(context, handoffFromDeviceName);
+    }
+    // A device-wide Windows Bluetooth connection does not prove that the chosen
+    // audio services are active. Reconciliation applies them first; later presses
+    // can use the plugin-observed toggle state.
     const isConnected = connectionState.get(context) || false;
-    const action = isConnected ? 'disconnect' : 'connect';
+    const shouldReconcile = needsReconcile.has(context);
+    const action = handoffFromDeviceName
+        ? 'connect'
+        : (0, audio_profile_1.chooseConnectionAction)(isConnected, shouldReconcile);
+    const wasConnected = !handoffFromDeviceName && isConnected && !shouldReconcile;
     // Set to "Connecting" state (state 1)
     setState(context, 1);
+    let attemptedCommand;
     try {
-        const { stdout } = await execFileAsync(helperPath(), [deviceName, action], {
-            timeout: 30000,
-        });
-        if (stdout.includes('SUCCESS')) {
-            // Update connection state
-            connectionState.set(context, !isConnected);
-            if (!isConnected) {
-                // Just connected - show connected state
-                setState(context, 2);
-                setTitle(context, 'Connected!');
-                showOK(context);
-                playSound('success');
-                logMessage(`Connected to ${deviceName}`);
-                setTimeout(() => setTitle(context, ''), 2000);
-            }
-            else {
-                // Just disconnected - return to disconnected state
-                setState(context, 0);
-                setTitle(context, 'Disconnected!');
-                showOK(context);
-                playSound('success');
-                logMessage(`Disconnected from ${deviceName}`);
-                setTimeout(() => setTitle(context, ''), 2000);
+        let handoffStatus = 'not-found';
+        if (handoffFromDeviceName) {
+            handoffStatus = await getDeviceStatus(handoffFromDeviceName, audioProfile);
+            if (settingsChangedDuringOperation(context, operationSettingsKey)) {
+                keepNewSettingsPending(context, undefined, deviceName);
+                return;
             }
         }
+        const commands = (0, device_handoff_1.buildExclusiveConnectionPlan)(deviceName, action, handoffFromDeviceName, handoffStatus);
+        for (const command of commands) {
+            attemptedCommand = command;
+            const helperArgs = (0, audio_profile_1.buildHelperArgs)(command.deviceName, command.action, audioProfile, process.platform);
+            const { stdout } = await execFileAsync(helperPath(), helperArgs, { timeout: 30000 });
+            if (!stdout.includes('SUCCESS')) {
+                throw new Error(`Unexpected result while trying to ${command.action} ` +
+                    `${command.deviceName}: ${stdout}`);
+            }
+            if (settingsChangedDuringOperation(context, operationSettingsKey)) {
+                keepNewSettingsPending(context, command.action, command.deviceName);
+                return;
+            }
+            if (handoffFromDeviceName &&
+                command.action === 'disconnect' &&
+                (0, device_handoff_1.sameDeviceName)(command.deviceName, handoffFromDeviceName)) {
+                logMessage(`Disconnected previous device ${handoffFromDeviceName}`);
+            }
+        }
+        const didConnect = commands[commands.length - 1].action === 'connect';
+        if (didConnect && process.platform === 'win32') {
+            const { stdout, stderr } = await execFileAsync(audioRouterPath(), [deviceName, audioProfile], { timeout: 20000 });
+            if (!stdout.includes('SUCCESS')) {
+                throw new Error(`Audio routing did not complete for ${deviceName}: ${stderr || stdout}`);
+            }
+            if (settingsChangedDuringOperation(context, operationSettingsKey)) {
+                keepNewSettingsPending(context, 'connect', deviceName);
+                return;
+            }
+            logMessage(`Routed Windows audio: ${stdout.trim()}`);
+        }
+        connectionState.set(context, didConnect);
+        needsReconcile.delete(context);
+        if (didConnect) {
+            clearPendingHandoff(context);
+            // Just connected - show connected state
+            setState(context, 2);
+            setTitle(context, 'Connected!');
+            showOK(context);
+            playSound('success');
+            logMessage(`Connected to ${deviceName} using ${audioProfile}`);
+            scheduleFeedback(context, () => setTitle(context, ''), 2000);
+        }
         else {
-            // Exited 0 but without a SUCCESS marker: treat as an error so the button
-            // never gets stuck on the "Connecting" state.
-            showError(context, isConnected, `Unexpected result while trying to ${action} ${deviceName}: ${stdout}`);
+            // Just disconnected - return to disconnected state
+            setState(context, 0);
+            setTitle(context, 'Disconnected!');
+            showOK(context);
+            playSound('success');
+            logMessage(`Disconnected from ${deviceName}`);
+            scheduleFeedback(context, () => setTitle(context, ''), 2000);
         }
     }
     catch (error) {
         // Non-zero exit: device not found, both profiles failed, timeout, etc.
-        const detail = error?.stdout || error?.message || 'unknown error';
-        showError(context, isConnected, `Failed to ${action} ${deviceName}: ${detail}`);
+        const detail = error?.stdout || error?.stderr || error?.message || 'unknown error';
+        if (settingsChangedDuringOperation(context, operationSettingsKey)) {
+            const attemptedConnect = attemptedCommand?.action === 'connect';
+            keepNewSettingsPending(context, attemptedConnect ? 'connect' : undefined, attemptedCommand?.deviceName || deviceName);
+            return;
+        }
+        if (attemptedCommand?.action === 'connect') {
+            // The helper may have toggled one service before failing or timing out.
+            // Keep that attempted target as the next cleanup source, even when it is
+            // still the selected device; a later B→C edit will then disconnect B.
+            persistPendingHandoff(context, attemptedCommand.deviceName);
+            needsReconcile.add(context);
+            connectionState.set(context, false);
+        }
+        showError(context, wasConnected, `Failed to ${action} ${deviceName}: ${detail}`);
     }
     finally {
         // Always release the execution lock
+        invalidatePendingStatus(context);
         executionLock.set(context, false);
     }
 }
@@ -161,7 +345,7 @@ function showError(context, wasConnected, logText) {
     showAlert(context);
     playSound('error');
     logMessage(logText);
-    setTimeout(() => {
+    scheduleFeedback(context, () => {
         setState(context, wasConnected ? 2 : 0);
         setTitle(context, '');
     }, 3000);
@@ -181,9 +365,10 @@ async function listDevices() {
     }
 }
 // Query the executable for the current connection state of a device.
-async function getDeviceStatus(deviceName) {
+async function getDeviceStatus(deviceName, audioProfile) {
     try {
-        const { stdout } = await execFileAsync(helperPath(), [deviceName, 'status'], { timeout: 15000 });
+        const helperArgs = (0, audio_profile_1.buildHelperArgs)(deviceName, 'status', audioProfile, process.platform);
+        const { stdout } = await execFileAsync(helperPath(), helperArgs, { timeout: 15000 });
         // Order matters: the string "DISCONNECTED" contains the substring "CONNECTED".
         if (stdout.includes('DISCONNECTED'))
             return 'disconnected';
@@ -191,25 +376,148 @@ async function getDeviceStatus(deviceName) {
             return 'connected';
         return 'unknown';
     }
-    catch {
+    catch (error) {
+        const detail = String(error?.stdout || error?.stderr || error?.message || '');
+        if (detail.toLocaleLowerCase().includes('not found'))
+            return 'not-found';
         return 'unknown';
     }
 }
 // On appear (or after a settings change), reflect the device's real connection
 // state on the key so the icon is correct even after a Stream Deck restart.
-async function syncVisualState(context, deviceName) {
-    if (!deviceName)
+async function syncVisualState(context, settings) {
+    if (!settings.deviceName)
         return;
-    const status = await getDeviceStatus(deviceName);
+    const revision = (stateRevision.get(context) || 0) + 1;
+    stateRevision.set(context, revision);
+    const status = await getDeviceStatus(settings.deviceName, settings.audioProfile);
+    // Ignore a stale status request that completed after settings changed or the
+    // user pressed the key.
+    if (stateRevision.get(context) !== revision || needsReconcile.has(context))
+        return;
     if (status === 'connected') {
-        connectionState.set(context, true);
-        setState(context, 2);
+        if (process.platform === 'win32' && connectionState.get(context) !== true) {
+            // Windows only reports a device-wide Bluetooth connection here. Neither
+            // A2DP nor HFP is proven active, so a fresh/reconfigured key must apply
+            // its selected profile before normal plugin-observed toggling resumes.
+            needsReconcile.add(context);
+            connectionState.set(context, false);
+            setState(context, 0);
+        }
+        else {
+            connectionState.set(context, true);
+            setState(context, 2);
+        }
     }
-    else if (status === 'disconnected') {
+    else if (status === 'disconnected' || status === 'not-found') {
+        needsReconcile.delete(context);
         connectionState.set(context, false);
         setState(context, 0);
     }
     // 'unknown' (e.g. device not currently paired): leave the key as-is.
+}
+function invalidatePendingStatus(context) {
+    stateRevision.set(context, (stateRevision.get(context) || 0) + 1);
+}
+function invalidateFeedback(context) {
+    feedbackRevision.set(context, (feedbackRevision.get(context) || 0) + 1);
+}
+function scheduleFeedback(context, callback, delayMs) {
+    const revision = feedbackRevision.get(context) || 0;
+    setTimeout(() => {
+        if ((feedbackRevision.get(context) || 0) === revision)
+            callback();
+    }, delayMs);
+}
+function settingsKey(settings) {
+    return JSON.stringify([
+        (0, device_handoff_1.normalizeDeviceName)(settings.deviceName),
+        (0, audio_profile_1.normalizeAudioProfile)(settings.audioProfile),
+        normalizeHandoffName(settings.handoffFromDeviceName),
+    ]);
+}
+function settingsChangedDuringOperation(context, operationSettingsKey) {
+    const currentSettings = settingsCache.get(context);
+    return currentSettings !== undefined && settingsKey(currentSettings) !== operationSettingsKey;
+}
+function normalizeHandoffName(value) {
+    return typeof value === 'string' ? value.trim().toLocaleLowerCase() : '';
+}
+function persistSettings(context, settings) {
+    settingsCache.set(context, settings);
+    const echoes = pendingSettingsEchoes.get(context) || [];
+    echoes.push(settingsKey(settings));
+    // A context should only have a few in-flight writes, but keep the tracker
+    // bounded if Stream Deck closes before echoing an update.
+    if (echoes.length > 20)
+        echoes.splice(0, echoes.length - 20);
+    pendingSettingsEchoes.set(context, echoes);
+    sendEvent('setSettings', context, settings);
+}
+function consumeSettingsEcho(context, settings) {
+    const echoes = pendingSettingsEchoes.get(context);
+    if (!echoes)
+        return false;
+    const index = echoes.indexOf(settingsKey(settings));
+    if (index === -1)
+        return false;
+    // Stream Deck preserves write order but may coalesce notifications. If a
+    // later echo arrives, every earlier queued snapshot is obsolete as well.
+    echoes.splice(0, index + 1);
+    if (echoes.length === 0)
+        pendingSettingsEchoes.delete(context);
+    return true;
+}
+function sendAcceptedSettings(context, requestId) {
+    const settings = settingsCache.get(context);
+    if (settings) {
+        sendToPropertyInspector(context, {
+            event: 'settingsAccepted',
+            settings,
+            requestId,
+        });
+    }
+}
+function persistPendingHandoff(context, deviceName) {
+    const normalizedDeviceName = (0, device_handoff_1.normalizeDeviceName)(deviceName);
+    pendingHandoff.set(context, normalizedDeviceName);
+    const currentSettings = settingsCache.get(context);
+    if (currentSettings &&
+        !(0, device_handoff_1.sameDeviceName)(currentSettings.handoffFromDeviceName, normalizedDeviceName)) {
+        const nextSettings = {
+            ...currentSettings,
+            handoffFromDeviceName: normalizedDeviceName,
+        };
+        settingsCache.set(context, nextSettings);
+        persistSettings(context, nextSettings);
+    }
+    sendAcceptedSettings(context);
+}
+function clearPendingHandoff(context) {
+    pendingHandoff.delete(context);
+    const currentSettings = settingsCache.get(context);
+    if (currentSettings?.handoffFromDeviceName) {
+        const nextSettings = { ...currentSettings };
+        delete nextSettings.handoffFromDeviceName;
+        settingsCache.set(context, nextSettings);
+        persistSettings(context, nextSettings);
+    }
+    sendAcceptedSettings(context);
+}
+function keepNewSettingsPending(context, completedAction, previousDeviceName) {
+    const selectedDeviceName = settingsCache.get(context)?.deviceName;
+    const staleHandoffDeviceName = (0, device_handoff_1.resolveStaleConnectHandoff)(selectedDeviceName, completedAction, previousDeviceName);
+    if (staleHandoffDeviceName) {
+        // The now-stale target may really be connected. Make it the next handoff
+        // source so a rapid settings change cannot leave two devices active.
+        persistPendingHandoff(context, staleHandoffDeviceName);
+    }
+    needsReconcile.add(context);
+    connectionState.set(context, false);
+    setState(context, 0);
+    setTitle(context, '');
+    logMessage(`Ignored stale ${completedAction || 'status'} result for ${previousDeviceName}; ` +
+        'the next press will apply the updated settings');
 }
 function setState(context, state) {
     sendEvent('setState', context, { state });

@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/Version-1.0.5-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.1.0.5-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/github/downloads/ChromuSx/BluetoothDeviceConnector/total?style=for-the-badge&logo=github" alt="Downloads">
   <img src="https://img.shields.io/github/stars/ChromuSx/BluetoothDeviceConnector?style=for-the-badge" alt="Stars">
 </p>
@@ -42,20 +42,23 @@ This project includes an **official Stream Deck plugin** that lets you connect y
   </a>
 </div>
 
-https://github.com/user-attachments/assets/05e95be0-e882-46ef-b7d7-b2d59a091051
-
-<sub>▶ Press play for sound. Not rendering (e.g. outside GitHub)? <a href="streamdeck-plugin/marketplace/promo.mp4">Download the MP4</a>.</sub>
+<div align="center">
+  <a href="streamdeck-plugin/marketplace/promo.mp4"><strong>▶ Watch the updated 27-second promo (MP4)</strong></a>
+</div>
 
 ### Quick Start
 1. Install directly from the [Elgato Marketplace](https://marketplace.elgato.com/product/bluetooth-device-connector-d7e642fc-1199-4ca0-9849-e303281dd07d) or download from [GitHub Releases](https://github.com/ChromuSx/BluetoothDeviceConnector/releases/latest)
 2. Add the "Connect Bluetooth Device" action to your Stream Deck
-3. Pick your device from the dropdown and connect instantly!
+3. Pick your device and audio profile, then connect with one press!
 
 ### Features
 - ✅ One-click connect/disconnect toggle
 - 🔍 Device picker — choose a paired device from a dropdown in the Property Inspector
+- 🎧 Per-key audio profile — choose stereo-only A2DP or stereo plus the Hands-Free microphone on Windows
+- 🔁 Exclusive same-key handoff — changing a key's device disconnects its previous target before connecting the new one
+- 🔊 Verified Windows audio routing — a successful connection selects and verifies the matching default playback endpoint, and tries the Hands-Free microphone when available
 - 🔊 Speaker-only device support (Amazon Echo Dot, Bluetooth speakers, and devices without HFP)
-- 📡 Live connection state — button icon stays in sync after Stream Deck restarts
+- 📡 Safe restart state — Windows keys reapply their selected audio profile on the first press when device-wide Bluetooth status cannot prove the audio services are active
 - 🎯 Visual feedback (Disconnected / Connecting / Connected / Error states)
 - 🚀 Fast and lightweight
 

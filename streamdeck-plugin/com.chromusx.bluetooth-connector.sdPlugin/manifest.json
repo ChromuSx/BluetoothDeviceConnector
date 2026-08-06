@@ -1,9 +1,9 @@
 {
 	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
 	"Name": "Bluetooth Device Connector",
-	"Version": "1.1.0.1",
+	"Version": "1.1.0.5",
 	"Author": "chromusx",
-	"Description": "Eliminate the hassle of navigating Bluetooth settings! Connect or disconnect your Bluetooth devices instantly with a single button press. Perfect for streamers, content creators, and multitaskers who frequently switch between headphones, speakers, microphones, and other Bluetooth peripherals. Features real-time visual status indicators, audio feedback, and seamless multi-device support—all without interrupting your workflow.",
+	"Description": "Connect or disconnect paired Bluetooth devices from Stream Deck. On Windows, choose stereo-only or stereo plus microphone per key and route playback to the connected device, with clear key and sound feedback.",
 	"URL": "https://github.com/ChromuSx/BluetoothDeviceConnector",
 	"Icon": "imgs/plugin-icon",
 	"CodePath": "bin/plugin.js",
@@ -16,10 +16,6 @@
 		{
 			"Platform": "windows",
 			"MinimumVersion": "10"
-		},
-		{
-			"Platform": "mac",
-			"MinimumVersion": "13"
 		}
 	],
 	"Software": {

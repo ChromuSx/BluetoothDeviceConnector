@@ -95,3 +95,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom sound notifications
 - Auto-reconnect on connection loss
 - Connection history and logging
+
+## [1.1.0.5] - 2026-08-06
+
+### Added
+- After a successful Windows connection, the plugin now selects and verifies the matching default playback endpoint. With the combined A2DP + HFP profile, it also attempts to select and verify the device's microphone when Windows exposes one.
+
+### Fixed
+- Switching Bluetooth targets no longer leaves Windows audio routed to the previously active device.
+- Migrating a key from the implicit legacy default device now preserves that device as the pending handoff target, so it is disconnected before the newly selected device connects.
+
+## [1.1.0.4] - 2026-08-06
+
+### Added
+- Changing the device assigned to a Stream Deck key now creates an exclusive handoff: the next press disconnects that key's previous audio target before connecting the newly selected one.
+
+### Fixed
+- Rapid Property Inspector changes no longer race plugin-side handoff updates or restore an older device selection.
+- Connect/disconnect operations no longer report success when one exposed Bluetooth audio service failed to reach the requested state.
+- macOS helper failures now preserve `stderr` details for accurate not-found handling and diagnostics.
+- Delayed visual-feedback timers can no longer overwrite a newer action or settings state.
+
+## [1.1.0.3] - 2026-08-06
+
+### Fixed
+- A2DP-only connections no longer show an error when Windows reports `ERROR_NOT_FOUND` for an already unavailable Hands-Free profile.
+
+## [1.1.0.2] - 2026-08-06
+
+### Added
+- Stream Deck keys can now select **Stereo only (A2DP)** or **Stereo + microphone (A2DP + HFP)** on Windows.
+
+### Changed
+- Stereo-only connections explicitly disable Hands-Free before enabling A2DP, while existing keys without the new setting retain their combined-profile behavior.
+- Stereo-only keys reconcile A2DP on their first press when Windows reports only a device-wide Bluetooth connection.
+- Updated the bundled `ws` runtime dependency to 8.21.2.
+
+### Fixed
+- Manual helper launches without an attached console now return cleanly instead of showing an AutoHotkey invalid-handle dialog.

@@ -7,7 +7,7 @@ import { COLORS, FONT } from "../theme";
 // Static 1920x960 marketplace thumbnail.
 export const Thumbnail: React.FC = () => {
   const deck = buildDeck({
-    airpods: "connected",
+    airpods: "disconnected",
     echo: "connected",
     showEcho: true,
   });
@@ -50,7 +50,7 @@ export const Thumbnail: React.FC = () => {
                 background: COLORS.connected,
               }}
             />
-            No Windows settings
+            Windows playback routing
           </div>
           <div
             style={{
@@ -73,7 +73,7 @@ export const Thumbnail: React.FC = () => {
               color: COLORS.inkSoft,
             }}
           >
-            Headphones, speakers, and microphones on separate keys
+            Choose stereo-only or stereo + microphone per key
           </div>
           <div
             style={{
@@ -93,7 +93,7 @@ export const Thumbnail: React.FC = () => {
               flexWrap: "wrap",
             }}
           >
-            {["Audio + mic", "Live status", "Tap to toggle"].map(
+            {["Per-key profiles", "Default playback", "Key feedback"].map(
               (label) => (
                 <span
                   key={label}

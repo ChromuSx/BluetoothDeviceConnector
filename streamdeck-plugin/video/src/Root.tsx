@@ -1,6 +1,10 @@
 import React from "react";
 import { Composition, Still } from "remotion";
 import { BluetoothPromo } from "./BluetoothPromo";
+import {
+  MarketplaceHero,
+  MarketplacePropertyInspector,
+} from "./components/MarketplaceStills";
 import { Thumbnail } from "./components/Thumbnail";
 
 export const RemotionRoot: React.FC = () => {
@@ -17,6 +21,18 @@ export const RemotionRoot: React.FC = () => {
       <Still
         id="BluetoothThumbnail"
         component={Thumbnail}
+        width={1920}
+        height={960}
+      />
+      <Still
+        id="MarketplaceHero"
+        component={MarketplaceHero}
+        width={1920}
+        height={960}
+      />
+      <Still
+        id="MarketplacePropertyInspector"
+        component={MarketplacePropertyInspector}
         width={1920}
         height={960}
       />

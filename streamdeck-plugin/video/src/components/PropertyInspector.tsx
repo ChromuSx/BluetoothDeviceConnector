@@ -55,9 +55,9 @@ const DeviceTag: React.FC<{ tag: string; selected: boolean }> = ({
   </span>
 );
 
-// Simplified Property Inspector showing the v1.0.5 device picker dropdown.
-// Self-animates relative to its own sequence: panel slides in, dropdown opens,
-// selection lands on the speaker-only device to highlight that feature.
+// Legacy animated picker experiment retained for local previews. Published
+// Marketplace media uses MarketplacePropertyInspector, which mirrors the
+// current device and Audio Profile controls.
 export const PropertyInspector: React.FC<{ highlightIndex: number }> = ({
   highlightIndex,
 }) => {

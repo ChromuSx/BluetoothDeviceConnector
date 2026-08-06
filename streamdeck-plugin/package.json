@@ -7,15 +7,19 @@
   "main": "src/plugin.ts",
   "scripts": {
     "build": "tsc && node scripts/copy-assets.js",
+    "build:windows-helpers": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-helpers.ps1",
+    "build:windows": "npm run build:windows-helpers && npm run build",
+    "test": "npm run build && node --test tests/*.test.js",
     "watch": "tsc --watch"
   },
   "devDependencies": {
+    "@elgato/cli": "1.7.4",
     "@elgato/streamdeck": "^1.0.0",
     "@types/node": "^20.0.0",
     "@types/ws": "^8.18.1",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "ws": "^8.18.3"
+    "ws": "^8.21.2"
   }
 }

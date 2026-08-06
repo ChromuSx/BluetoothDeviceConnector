@@ -16,7 +16,7 @@ import { Key } from "./Key";
 const DEVICES = [
   { name: "AirPods Pro", tag: "headset" },
   { name: "Sony WH-1000XM4", tag: "headset" },
-  { name: "Amazon Echo Dot", tag: "speaker" },
+  { name: "Echo Dot", tag: "speaker" },
   { name: "JBL Flip 6", tag: "speaker" },
   { name: "Bose QC45", tag: "headset" },
 ];
@@ -391,6 +391,7 @@ const SelectBox: React.FC<{ value: string; open: number }> = ({
 export const SoftwareSetup: React.FC<{
   title: string;
   device: string;
+  audioProfile?: "Stereo only (A2DP)" | "Stereo + microphone (A2DP + Hands-Free)";
   selectedIndex: number;
   showEcho?: boolean;
   stepLabel?: string;
@@ -401,6 +402,7 @@ export const SoftwareSetup: React.FC<{
 }> = ({
   title,
   device,
+  audioProfile = "Stereo + microphone (A2DP + Hands-Free)",
   selectedIndex,
   showEcho = false,
   stepLabel,
@@ -437,6 +439,16 @@ export const SoftwareSetup: React.FC<{
     echo: "disconnected",
     showEcho,
   });
+  if (selectedIndex >= 0 && selectedIndex < deck.length) {
+    deck[selectedIndex] =
+      showDrag && frame < 70
+        ? { kind: "empty" }
+        : {
+            kind: "bluetooth",
+            state: "disconnected",
+            title: typedTitle || title,
+          };
+  }
   const noteOpacity = interpolate(
     frame,
     [6, 24, duration - 42, duration - 18],
@@ -523,7 +535,7 @@ export const SoftwareSetup: React.FC<{
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 330px",
-            height: 460,
+            height: 412,
           }}
         >
           <div
@@ -602,15 +614,12 @@ export const SoftwareSetup: React.FC<{
             <div style={{ marginTop: 10 }}>
               <ActionRow active />
             </div>
-            <div style={{ marginTop: 10 }}>
-              <ActionRow />
-            </div>
           </div>
         </div>
 
         <div
           style={{
-            height: 272,
+            height: 320,
             background: "#2d2d2d",
             borderTop: "1px solid #3f3f3f",
             padding: "22px 28px",
@@ -653,11 +662,18 @@ export const SoftwareSetup: React.FC<{
             </Field>
             <Field
               label="Bluetooth Device"
-              helper="The saved device toggles when this key is pressed."
+              helper="Select the paired device to connect. Don't see it? Pair it in your system Bluetooth settings, then click ⟳."
             >
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 48px", gap: 8 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 48px",
+                  gap: 8,
+                  position: "relative",
+                }}
+              >
                 <SelectBox
-                  value={selected ? device : "Select a device"}
+                  value={selected ? device : "— Select a device —"}
                   open={dropdownOpen}
                 />
                 <div
@@ -685,55 +701,65 @@ export const SoftwareSetup: React.FC<{
                     />
                   </svg>
                 </div>
-              </div>
-
-              <div
-                style={{
-                  height: listHeight,
-                  overflow: "hidden",
-                  marginTop: 7,
-                  borderRadius: 6,
-                  background: listHeight > 4 ? "#242424" : "transparent",
-                  border: listHeight > 4 ? "1px solid #4a4a4a" : "none",
-                }}
-              >
-                <div style={{ padding: 5 }}>
-                  {DEVICES.map((item, index) => {
-                    const isTarget = item.name === device;
-                    const rowSelected = selected && isTarget;
-                    const appear = interpolate(
-                      frame,
-                      [94 + index * 4, 108 + index * 4],
-                      [0, 1],
-                      {
-                        extrapolateLeft: "clamp",
-                        extrapolateRight: "clamp",
-                      }
-                    );
-                    return (
-                      <div
-                        key={item.name}
-                        style={{
-                          height: 34,
-                          borderRadius: 5,
-                          padding: "0 10px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          background: rowSelected ? "#0e7afe" : "transparent",
-                          opacity: appear,
-                          color: "#f2f2f2",
-                          fontSize: 13,
-                          fontWeight: rowSelected ? 800 : 600,
-                        }}
-                      >
-                        {item.name}
-                        <DeviceTag tag={item.tag} selected={rowSelected} />
-                      </div>
-                    );
-                  })}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 56,
+                    top: 47,
+                    zIndex: 8,
+                    height: listHeight,
+                    overflow: "hidden",
+                    borderRadius: 6,
+                    background: listHeight > 4 ? "#242424" : "transparent",
+                    border: listHeight > 4 ? "1px solid #4a4a4a" : "none",
+                    boxShadow:
+                      listHeight > 4 ? "0 16px 34px rgba(0,0,0,0.34)" : "none",
+                  }}
+                >
+                  <div style={{ padding: 5 }}>
+                    {DEVICES.map((item, index) => {
+                      const isTarget = item.name === device;
+                      const rowSelected = selected && isTarget;
+                      const appear = interpolate(
+                        frame,
+                        [94 + index * 4, 108 + index * 4],
+                        [0, 1],
+                        {
+                          extrapolateLeft: "clamp",
+                          extrapolateRight: "clamp",
+                        }
+                      );
+                      return (
+                        <div
+                          key={item.name}
+                          style={{
+                            height: 34,
+                            borderRadius: 5,
+                            padding: "0 10px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            background: rowSelected ? "#0e7afe" : "transparent",
+                            opacity: appear,
+                            color: "#f2f2f2",
+                            fontSize: 13,
+                            fontWeight: rowSelected ? 800 : 600,
+                          }}
+                        >
+                          {item.name}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
+            </Field>
+            <Field
+              label="Audio Profile"
+              helper="Stereo only disables the Windows Hands-Free microphone profile, which can reduce playback quality. Changes apply on the next key press."
+            >
+              <SelectBox value={audioProfile} open={0} />
             </Field>
           </div>
         </div>

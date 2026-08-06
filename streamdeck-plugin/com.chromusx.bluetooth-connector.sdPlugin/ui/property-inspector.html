@@ -85,6 +85,10 @@
             color: #6a6a6a;
             line-height: 1.4;
         }
+
+        [hidden] {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -101,6 +105,17 @@
                 Select the paired device to connect. Don't see it? Pair it in your system Bluetooth settings, then click ⟳.
             </p>
         </div>
+
+        <div class="form-group" id="audioProfileGroup">
+            <label for="audioProfileSelect">Audio Profile</label>
+            <select id="audioProfileSelect">
+                <option value="a2dp">Stereo only (A2DP)</option>
+                <option value="a2dp-hfp">Stereo + microphone (A2DP + Hands-Free)</option>
+            </select>
+            <p class="info-text">
+                Stereo only disables the Windows Hands-Free microphone profile, which can reduce playback quality. Changes apply on the next key press.
+            </p>
+        </div>
     </div>
 
     <script>
@@ -108,14 +123,33 @@
         let pluginUUID = null;
         let actionInfo = {};
         let settings = {};
+        let initialSettings = {};
+        let latestSettingsRequest = 0;
 
         const deviceSelect = document.getElementById('deviceSelect');
         const refreshBtn = document.getElementById('refreshBtn');
+        const audioProfileGroup = document.getElementById('audioProfileGroup');
+        const audioProfileSelect = document.getElementById('audioProfileSelect');
+
+        function normalizeAudioProfile(value) {
+            return value === 'a2dp' ? 'a2dp' : 'a2dp-hfp';
+        }
 
         function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
             pluginUUID = inUUID;
             actionInfo = JSON.parse(inActionInfo);
-            settings = actionInfo.payload.settings || {};
+            initialSettings = { ...(actionInfo.payload.settings || {}) };
+            settings = { ...initialSettings };
+            audioProfileSelect.value = normalizeAudioProfile(settings.audioProfile);
+
+            // The macOS beta helper controls the whole Bluetooth connection and
+            // cannot select individual audio profiles.
+            try {
+                const streamDeckInfo = JSON.parse(inInfo);
+                audioProfileGroup.hidden = streamDeckInfo.application?.platform === 'mac';
+            } catch (e) {
+                audioProfileGroup.hidden = false;
+            }
 
             websocket = new WebSocket('ws://127.0.0.1:' + inPort);
 
@@ -137,6 +171,24 @@
                     data.payload.event === 'deviceList'
                 ) {
                     populateDevices(data.payload.devices || []);
+                } else if (
+                    data.event === 'sendToPropertyInspector' &&
+                    data.payload &&
+                    data.payload.event === 'settingsAccepted'
+                ) {
+                    const accepted = data.payload.settings || {};
+                    const requestId = Number(data.payload.requestId) || 0;
+                    const reduced = reduceAcceptedSettings(
+                        settings,
+                        initialSettings,
+                        accepted,
+                        requestId,
+                        latestSettingsRequest
+                    );
+                    if (!reduced) return;
+                    settings = reduced.settings;
+                    initialSettings = reduced.initialSettings;
+                    actionInfo.payload.settings = { ...initialSettings };
                 }
             };
 
@@ -192,14 +244,58 @@
             saveSettings();
         });
 
+        audioProfileSelect.addEventListener('change', function () {
+            settings.audioProfile = normalizeAudioProfile(audioProfileSelect.value);
+            saveSettings();
+        });
+
         refreshBtn.addEventListener('click', requestDevices);
+
+        function mergeInternalSettings(target, accepted) {
+            const merged = { ...target };
+            if (accepted && accepted.handoffFromDeviceName) {
+                merged.handoffFromDeviceName = accepted.handoffFromDeviceName;
+            } else {
+                delete merged.handoffFromDeviceName;
+            }
+            return merged;
+        }
+
+        function reduceAcceptedSettings(current, initial, accepted, requestId, latestRequestId) {
+            if (requestId > 0) {
+                // Only the latest correlated acknowledgement may update public
+                // fields. Older replies must not roll a rapid B→C edit back.
+                if (requestId !== latestRequestId) return null;
+                return {
+                    settings: { ...accepted },
+                    initialSettings: { ...accepted }
+                };
+            }
+
+            // Action-time acknowledgements only change the hidden handoff
+            // journal; retain the user's current controls.
+            return {
+                settings: mergeInternalSettings(current, accepted),
+                initialSettings: mergeInternalSettings(initial, accepted)
+            };
+        }
 
         function saveSettings() {
             if (websocket && websocket.readyState === 1) {
+                latestSettingsRequest += 1;
                 websocket.send(JSON.stringify({
-                    event: 'setSettings',
+                    event: 'sendToPlugin',
+                    action: actionInfo.action,
                     context: pluginUUID,
-                    payload: settings
+                    payload: {
+                        event: 'updateSettings',
+                        settings: {
+                            deviceName: settings.deviceName || '',
+                            audioProfile: normalizeAudioProfile(settings.audioProfile)
+                        },
+                        initialSettings: { ...initialSettings },
+                        requestId: latestSettingsRequest
+                    }
                 }));
             }
         }

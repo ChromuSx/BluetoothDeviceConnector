@@ -83,7 +83,7 @@ export const Closing: React.FC = () => {
               color: COLORS.inkSoft,
             }}
           >
-            Switch Bluetooth audio without opening Windows settings
+            Route paired Bluetooth audio with one press
           </div>
           <div
             style={{
@@ -93,7 +93,7 @@ export const Closing: React.FC = () => {
               gap: 10,
             }}
           >
-            {["Audio + mic", "Live status", "Tap to toggle"].map((label) => (
+            {["Audio profiles", "Same-key handoff", "Key feedback"].map((label) => (
               <span
                 key={label}
                 style={{

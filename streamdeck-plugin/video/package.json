@@ -5,8 +5,14 @@
   "description": "Marketplace promo video for the Bluetooth Device Connector Stream Deck plugin",
   "scripts": {
     "studio": "remotion studio",
-    "render": "remotion render BluetoothPromo out/promo.mp4 --crf=23",
-    "thumbnail": "remotion still BluetoothThumbnail out/thumbnail.png"
+    "render:raw": "remotion render BluetoothPromo out/promo-raw.mp4 --crf=20",
+    "render": "npm run render:raw && ffmpeg -y -hide_banner -loglevel error -i out/promo-raw.mp4 -c:v copy -af volume=12dB -c:a aac -b:a 192k -movflags +faststart out/promo.mp4",
+    "thumbnail": "remotion still BluetoothThumbnail out/thumbnail.png",
+    "marketplace:hero": "remotion still MarketplaceHero ../marketplace/gallery-hero.png",
+    "marketplace:inspector": "remotion still MarketplacePropertyInspector ../marketplace/gallery-property-inspector.png",
+    "marketplace:thumbnail": "remotion still BluetoothThumbnail ../marketplace/promo-thumbnail.png",
+    "marketplace:video": "remotion render BluetoothPromo out/promo-marketplace-raw.mp4 --crf=20 && ffmpeg -y -hide_banner -loglevel error -i out/promo-marketplace-raw.mp4 -c:v copy -af volume=12dB -c:a aac -b:a 192k -movflags +faststart ../marketplace/promo.mp4",
+    "marketplace": "npm run marketplace:hero && npm run marketplace:inspector && npm run marketplace:thumbnail && npm run marketplace:video"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.0",

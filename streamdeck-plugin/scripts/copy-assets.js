@@ -29,7 +29,10 @@ console.log('Plugin directory:', sdPluginDir);
 // Verify critical files exist
 const criticalFiles = [
   'bin/plugin.js',
+  'bin/audio-profile.js',
+  'bin/device-handoff.js',
   process.platform === 'darwin' ? 'BluetoothConnectorMac' : 'BluetoothConnector.exe',
+  ...(process.platform === 'win32' ? ['AudioEndpointRouter.exe'] : []),
   'node_modules/ws/index.js',
   'manifest.json',
   'ui/property-inspector.html'

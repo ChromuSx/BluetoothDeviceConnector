@@ -18,61 +18,45 @@ import { SoftwareSetup } from "./components/SoftwareSetup";
 import { StatusTrail } from "./components/StatusTrail";
 import {
   AIRPODS_INDEX,
-  ECHO_INDEX,
   StreamDeck,
   buildDeck,
 } from "./components/StreamDeck";
 import { TapIndicator } from "./components/TapIndicator";
 import { BtState } from "./components/Key";
-import { COLORS } from "./theme";
+import { COLORS, FONT } from "./theme";
 
 // Timeline (frames @ 60fps, 1620 total = 27s)
 const DURATION = 1620;
-const SETUP_A_DURATION = 330;
-const SETUP_B_IN = 300;
-const SETUP_B_DURATION = 270;
-const STAGE_IN = 570;
-const AIR_TAP = 670;
-const AIR_CONNECTED_AT = 805;
-const AIR_DISCONNECT_TAP = 945;
-const AIR_DISCONNECTED_AT = 1080;
-const ECHO_TAP = 1210;
-const ECHO_CONNECTED_AT = 1345;
-const CLOSE_AT = 1470;
+const INITIAL_SETUP_DURATION = 280;
+const AIR_STAGE_IN = 250;
+const AIR_TAP = 340;
+const AIR_CONNECTED_AT = 455;
+const EDIT_IN = 550;
+const EDIT_DURATION = 310;
+const HANDOFF_STAGE_IN = 840;
+const HANDOFF_TAP = 935;
+const PREVIOUS_DISCONNECTED_AT = 1035;
+const ROUTE_AT = 1170;
+const ECHO_CONNECTED_AT = 1260;
+const CLOSE_AT = 1450;
+
+const AIR_STAGE_DURATION = EDIT_IN - AIR_STAGE_IN + 18;
+const HANDOFF_STAGE_DURATION = CLOSE_AT - HANDOFF_STAGE_IN + 18;
 
 const HERO_X = 96;
-const ECHO_X = 346;
 const HERO_Y = 254;
 
-function deckStates(frame: number): { airpods: BtState; echo: BtState } {
-  let airpods: BtState = "disconnected";
-  let echo: BtState = "disconnected";
+type StageMode = "airpods" | "handoff";
 
-  if (frame >= AIR_TAP && frame < AIR_CONNECTED_AT) {
-    airpods = "connecting";
-  } else if (frame >= AIR_CONNECTED_AT && frame < AIR_DISCONNECT_TAP) {
-    airpods = "connected";
-  } else if (frame >= AIR_DISCONNECT_TAP && frame < AIR_DISCONNECTED_AT) {
-    airpods = "connecting";
-  }
-
-  if (frame >= ECHO_TAP && frame < ECHO_CONNECTED_AT) {
-    echo = "connecting";
-  } else if (frame >= ECHO_CONNECTED_AT) {
-    echo = "connected";
-  }
-
-  return { airpods, echo };
-}
-
-function activeState(frame: number): BtState {
-  if (frame >= ECHO_TAP) return deckStates(frame).echo;
-  if (frame >= AIR_DISCONNECT_TAP && frame < AIR_DISCONNECTED_AT) {
-    return "connecting";
-  }
-  if (frame >= AIR_DISCONNECTED_AT) return "disconnected";
-  return deckStates(frame).airpods;
-}
+type RoutePhase = {
+  order: number;
+  start: number;
+  eyebrow: string;
+  title: string;
+  detail: string;
+  note: string;
+  color: string;
+};
 
 const tapPress = (frame: number, at: number) =>
   interpolate(frame, [at - 6, at, at + 12, at + 22], [0, 1, 1, 0], {
@@ -80,312 +64,382 @@ const tapPress = (frame: number, at: number) =>
     extrapolateRight: "clamp",
   });
 
-const ProfileIcon: React.FC<{ kind: "audio" | "mic" | "speaker" }> = ({
-  kind,
-}) => (
-  <svg width="24" height="24" viewBox="0 0 48 48">
-    {kind === "audio" ? (
-      <path
-        d="M8 19v10h7l11 9V10L15 19H8Zm26-3a10 10 0 0 1 0 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ) : null}
-    {kind === "mic" ? (
-      <path
-        d="M24 6a6 6 0 0 0-6 6v11a6 6 0 0 0 12 0V12a6 6 0 0 0-6-6Zm13 17a13 13 0 0 1-26 0M24 36v6m-7 0h14"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ) : null}
-    {kind === "speaker" ? (
-      <path
-        d="M10 18v12h7l12 9V9L17 18H10Zm26-4a12 12 0 0 1 0 20"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ) : null}
-  </svg>
+function routePhase(mode: StageMode, frame: number): RoutePhase {
+  if (mode === "airpods") {
+    const tapAt = AIR_TAP - AIR_STAGE_IN;
+    const connectedAt = AIR_CONNECTED_AT - AIR_STAGE_IN;
+
+    if (frame < tapAt) {
+      return {
+        order: 0,
+        start: 0,
+        eyebrow: "Selected device",
+        title: "AirPods Pro",
+        detail: "Stereo + microphone profile",
+        note: "The microphone is used only when Windows exposes a matching endpoint.",
+        color: COLORS.blue,
+      };
+    }
+    if (frame < connectedAt) {
+      return {
+        order: 1,
+        start: tapAt,
+        eyebrow: "Bluetooth audio",
+        title: "AirPods Pro",
+        detail: "Connecting the requested services",
+        note: "Windows routing follows only after the Bluetooth connection succeeds.",
+        color: COLORS.connecting,
+      };
+    }
+    return {
+      order: 2,
+      start: connectedAt,
+      eyebrow: "Windows default output",
+      title: "Headphones (AirPods Pro)",
+      detail: "Playback endpoint verified",
+      note: "A matching microphone is also attempted when one is exposed.",
+      color: COLORS.connected,
+    };
+  }
+
+  const tapAt = HANDOFF_TAP - HANDOFF_STAGE_IN;
+  const disconnectedAt = PREVIOUS_DISCONNECTED_AT - HANDOFF_STAGE_IN;
+  const routeAt = ROUTE_AT - HANDOFF_STAGE_IN;
+  const connectedAt = ECHO_CONNECTED_AT - HANDOFF_STAGE_IN;
+
+  if (frame < tapAt) {
+    return {
+      order: 0,
+      start: 0,
+      eyebrow: "Current Windows output",
+      title: "Headphones (AirPods Pro)",
+      detail: "Next target: Echo Dot",
+      note: "The same key remembers its previous audio target.",
+      color: COLORS.blue,
+    };
+  }
+  if (frame < disconnectedAt) {
+    return {
+      order: 1,
+      start: tapAt,
+      eyebrow: "1 · Previous target",
+      title: "AirPods Pro",
+      detail: "Disconnecting audio services",
+      note: "The new connection waits for the previous target to disconnect.",
+      color: COLORS.blue,
+    };
+  }
+  if (frame < routeAt) {
+    return {
+      order: 2,
+      start: disconnectedAt,
+      eyebrow: "2 · Selected device",
+      title: "Echo Dot",
+      detail: "Connecting stereo playback",
+      note: "Speaker-only devices do not require a microphone endpoint.",
+      color: COLORS.connecting,
+    };
+  }
+  if (frame < connectedAt) {
+    return {
+      order: 3,
+      start: routeAt,
+      eyebrow: "3 · Windows output",
+      title: "Speakers (Echo Dot)",
+      detail: "Selecting and verifying default playback",
+      note: "Success is shown only after the matching endpoint is confirmed.",
+      color: COLORS.blue,
+    };
+  }
+  return {
+    order: 4,
+    start: connectedAt,
+    eyebrow: "Windows default output",
+    title: "Speakers (Echo Dot)",
+    detail: "Playback endpoint verified",
+    note: "AirPods is no longer the active playback target.",
+    color: COLORS.connected,
+  };
+}
+
+const RoutingCard: React.FC<{
+  mode: StageMode;
+  frame: number;
+  opacity: number;
+}> = ({ mode, frame, opacity }) => {
+  const phase = routePhase(mode, frame);
+  const phaseIn = interpolate(frame, [phase.start, phase.start + 16], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const handoffSteps = ["Disconnect", "Connect", "Route"];
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        right: -382,
+        top: 126,
+        width: 342,
+        padding: 22,
+        borderRadius: 20,
+        background: "rgba(255,255,255,0.88)",
+        border: "1px solid rgba(82,112,140,0.18)",
+        boxShadow: "0 22px 52px rgba(40,71,99,0.16)",
+        fontFamily: FONT,
+        opacity,
+        transform: `translateX(${(1 - opacity) * 18}px)`,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+          color: COLORS.navySoft,
+          fontSize: 14,
+          fontWeight: 850,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        }}
+      >
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            background: phase.color,
+            boxShadow: `0 0 0 5px ${phase.color}22`,
+          }}
+        />
+        {phase.eyebrow}
+      </div>
+
+      <div
+        style={{
+          marginTop: 18,
+          minHeight: 94,
+          opacity: phaseIn,
+          transform: `translateY(${(1 - phaseIn) * 8}px)`,
+        }}
+      >
+        <div
+          style={{
+            color: COLORS.ink,
+            fontSize: 24,
+            fontWeight: 850,
+            lineHeight: 1.12,
+          }}
+        >
+          {phase.title}
+        </div>
+        <div
+          style={{
+            marginTop: 8,
+            color: phase.color,
+            fontSize: 16,
+            fontWeight: 800,
+            lineHeight: 1.2,
+          }}
+        >
+          {phase.detail}
+        </div>
+      </div>
+
+      {mode === "handoff" ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 7,
+            margin: "12px 0 17px",
+          }}
+        >
+          {handoffSteps.map((label, index) => {
+            const step = index + 1;
+            const active = phase.order === step;
+            const complete = phase.order > step;
+            const color = active
+              ? phase.color
+              : complete
+                ? COLORS.connected
+                : "rgba(82,112,140,0.28)";
+            return (
+              <div key={label} style={{ textAlign: "center" }}>
+                <div
+                  style={{
+                    height: 5,
+                    borderRadius: 999,
+                    background: color,
+                    boxShadow: active ? `0 0 12px ${phase.color}66` : "none",
+                  }}
+                />
+                <div
+                  style={{
+                    marginTop: 7,
+                    color: active || complete ? COLORS.ink : COLORS.inkSoft,
+                    fontSize: 12,
+                    fontWeight: active ? 850 : 700,
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          style={{
+            height: 1,
+            margin: "12px 0 17px",
+            background: "rgba(82,112,140,0.16)",
+          }}
+        />
+      )}
+
+      <div
+        style={{
+          color: COLORS.inkSoft,
+          fontSize: 13,
+          fontWeight: 650,
+          lineHeight: 1.35,
+        }}
+      >
+        {phase.note}
+      </div>
+    </div>
+  );
+};
+
+const SameKeyCard: React.FC<{
+  mode: StageMode;
+  opacity: number;
+}> = ({ mode, opacity }) => (
+  <div
+    style={{
+      position: "absolute",
+      left: -358,
+      top: 148,
+      width: 318,
+      padding: 22,
+      borderRadius: 20,
+      background: "rgba(255,255,255,0.86)",
+      border: "1px solid rgba(82,112,140,0.18)",
+      boxShadow: "0 22px 52px rgba(40,71,99,0.14)",
+      fontFamily: FONT,
+      opacity,
+      transform: `translateX(${(1 - opacity) * -18}px)`,
+    }}
+  >
+    <div
+      style={{
+        color: COLORS.navySoft,
+        fontSize: 14,
+        fontWeight: 850,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+      }}
+    >
+      Same Stream Deck key
+    </div>
+    <div
+      style={{
+        marginTop: 13,
+        color: COLORS.ink,
+        fontSize: 26,
+        fontWeight: 850,
+        lineHeight: 1.15,
+      }}
+    >
+      {mode === "airpods" ? "AirPods Pro" : "AirPods → Echo Dot"}
+    </div>
+    <div
+      style={{
+        marginTop: 10,
+        color: mode === "airpods" ? COLORS.blue : COLORS.connected,
+        fontSize: 15,
+        fontWeight: 750,
+        lineHeight: 1.3,
+      }}
+    >
+      {mode === "airpods"
+        ? "Stereo + microphone selected"
+        : "Previous target retained for the next press"}
+    </div>
+  </div>
 );
 
-const AudioProfileBadges: React.FC<{
-  mode: "headset" | "speaker";
-  opacity: number;
-}> = ({ mode, opacity }) => {
-  const rows =
-    mode === "headset"
-      ? [
-          { icon: "audio" as const, label: "Audio output", detail: "A2DP music" },
-          { icon: "mic" as const, label: "Microphone", detail: "Handsfree calls" },
-        ]
-      : [
-          { icon: "speaker" as const, label: "Speaker audio", detail: "A2DP output" },
-          { icon: "audio" as const, label: "No mic required", detail: "Speaker-only devices" },
-        ];
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        right: -284,
-        top: 158,
-        width: 244,
-        display: "grid",
-        gap: 10,
-        opacity,
-        transform: `translateX(${(1 - opacity) * 16}px)`,
-        fontFamily: "Inter, Arial, sans-serif",
-      }}
-    >
-      {rows.map((row) => (
-        <div
-          key={row.label}
-          style={{
-            height: 68,
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.82)",
-            border: "1px solid rgba(82,112,140,0.18)",
-            boxShadow: "0 14px 32px rgba(40,71,99,0.11)",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "0 15px",
-            color: COLORS.ink,
-          }}
-        >
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 11,
-              background: "rgba(10,132,255,0.12)",
-              color: COLORS.blue,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <ProfileIcon kind={row.icon} />
-          </div>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 850, lineHeight: 1 }}>
-              {row.label}
-            </div>
-            <div
-              style={{
-                marginTop: 5,
-                fontSize: 13,
-                fontWeight: 700,
-                color: COLORS.inkSoft,
-              }}
-            >
-              {row.detail}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const WorkflowBadges: React.FC<{ opacity: number }> = ({ opacity }) => {
-  const rows = [
-    {
-      label: "No Windows settings",
-      detail: "Skip Bluetooth menus",
-      icon: (
-        <path
-          d="M9 11h30v22H9V11Zm0 7h30M16 27l16-16m-2 17 3 3"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ),
-    },
-    {
-      label: "Live status sync",
-      detail: "Checks real device state",
-      icon: (
-        <path
-          d="M36 14a15 15 0 0 0-25.3 7M12 14v7h7M12 34a15 15 0 0 0 25.3-7M36 34v-7h-7"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ),
-    },
-  ];
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: -292,
-        top: 152,
-        width: 252,
-        display: "grid",
-        gap: 10,
-        opacity,
-        transform: `translateX(${(1 - opacity) * -16}px)`,
-        fontFamily: "Inter, Arial, sans-serif",
-      }}
-    >
-      {rows.map((row) => (
-        <div
-          key={row.label}
-          style={{
-            height: 68,
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.84)",
-            border: "1px solid rgba(82,112,140,0.18)",
-            boxShadow: "0 14px 32px rgba(40,71,99,0.11)",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "0 15px",
-            color: COLORS.ink,
-          }}
-        >
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 11,
-              background: "rgba(10,132,255,0.12)",
-              color: COLORS.blue,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <svg width="24" height="24" viewBox="0 0 48 48">
-              {row.icon}
-            </svg>
-          </div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 850, lineHeight: 1 }}>
-              {row.label}
-            </div>
-            <div
-              style={{
-                marginTop: 5,
-                fontSize: 13,
-                fontWeight: 700,
-                color: COLORS.inkSoft,
-              }}
-            >
-              {row.detail}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const Stage: React.FC = () => {
+const ConnectionStage: React.FC<{
+  mode: StageMode;
+  duration: number;
+}> = ({ mode, duration }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const localFrame = Math.max(0, frame - STAGE_IN);
+  const tapAt =
+    mode === "airpods"
+      ? AIR_TAP - AIR_STAGE_IN
+      : HANDOFF_TAP - HANDOFF_STAGE_IN;
+  const connectedAt =
+    mode === "airpods"
+      ? AIR_CONNECTED_AT - AIR_STAGE_IN
+      : ECHO_CONNECTED_AT - HANDOFF_STAGE_IN;
 
   const intro = spring({
-    frame: localFrame,
+    frame,
     fps,
     config: { damping: 18, mass: 0.9 },
   });
-  const stageIn = interpolate(frame, [STAGE_IN - 24, STAGE_IN + 18], [0, 1], {
+  const stageIn = interpolate(frame, [0, 24], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const fadeOut = interpolate(frame, [CLOSE_AT - 8, CLOSE_AT + 24], [1, 0], {
+  const fadeOut = interpolate(frame, [duration - 26, duration], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const introScale = interpolate(intro, [0, 1], [0.92, 1]);
-  const slowZoom = interpolate(frame, [STAGE_IN, DURATION], [1, 1.028], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const scale = introScale * slowZoom;
+  const opacity = stageIn * fadeOut;
+  const scale = interpolate(intro, [0, 1], [0.93, 1]);
   const floatY = Math.sin(frame / 40) * 4;
+  const press = tapPress(frame, tapAt);
 
-  const airConnectPress = tapPress(frame, AIR_TAP);
-  const airDisconnectPress = tapPress(frame, AIR_DISCONNECT_TAP);
-  const echoPress = tapPress(frame, ECHO_TAP);
-  const airGlow =
-    frame >= AIR_CONNECTED_AT && frame < AIR_DISCONNECT_TAP
-      ? interpolate(frame, [AIR_CONNECTED_AT, AIR_CONNECTED_AT + 18], [1, 0.4], {
-          extrapolateRight: "clamp",
-        })
-      : 0;
-  const echoGlow =
-    frame >= ECHO_CONNECTED_AT
-      ? interpolate(frame, [ECHO_CONNECTED_AT, ECHO_CONNECTED_AT + 18], [1, 0.42], {
-          extrapolateRight: "clamp",
-        })
-      : 0;
-  const workflowOpacity = interpolate(
-    frame,
-    [STAGE_IN + 8, STAGE_IN + 28, AIR_TAP - 22, AIR_TAP + 2],
-    [0, 1, 1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }
-  );
-  const syncGlow = interpolate(
-    frame,
-    [STAGE_IN + 14, STAGE_IN + 40, AIR_TAP - 30, AIR_TAP - 8],
-    [0, 0.42, 0.42, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }
-  );
-  const headsetProfiles = interpolate(
-    frame,
-    [AIR_TAP - 16, AIR_TAP + 20, ECHO_TAP - 50, ECHO_TAP - 22],
-    [0, 1, 1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }
-  );
-  const speakerProfiles = interpolate(
-    frame,
-    [ECHO_TAP - 18, ECHO_TAP + 22, CLOSE_AT - 46, CLOSE_AT - 18],
-    [0, 1, 1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }
-  );
+  let state: BtState = "disconnected";
+  if (frame >= tapAt && frame < connectedAt) state = "connecting";
+  if (frame >= connectedAt) state = "connected";
 
-  const states = deckStates(frame);
+  const title = mode === "airpods" ? "AirPods" : "Echo Dot";
   const deck = buildDeck({
-    airpods: states.airpods,
-    echo: states.echo,
-    showEcho: true,
+    airpods: state,
+    showEcho: false,
   });
+  deck[AIRPODS_INDEX] = { kind: "bluetooth", state, title };
+
+  const connectedGlow =
+    frame >= connectedAt
+      ? interpolate(frame, [connectedAt, connectedAt + 20], [1, 0.42], {
+          extrapolateRight: "clamp",
+        })
+      : 0;
+  const routeGlow =
+    mode === "handoff" && frame >= ROUTE_AT - HANDOFF_STAGE_IN
+      ? interpolate(
+          frame,
+          [
+            ROUTE_AT - HANDOFF_STAGE_IN,
+            ROUTE_AT - HANDOFF_STAGE_IN + 18,
+            connectedAt,
+          ],
+          [0, 0.68, 0.3],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          }
+        )
+      : 0;
 
   return (
-    <AbsoluteFill style={{ opacity: stageIn * fadeOut }}>
-      <div style={{ position: "absolute", left: "50%", top: "52%" }}>
+    <AbsoluteFill style={{ opacity }}>
+      <div style={{ position: "absolute", left: "50%", top: "55%" }}>
         <div
           style={{
             transform: `translate(-50%, -50%) translateY(${floatY}px) scale(${scale})`,
@@ -395,31 +449,16 @@ const Stage: React.FC = () => {
           <div style={{ position: "relative", width: 692 }}>
             <StreamDeck
               keys={deck}
-              keyPresses={{
-                [AIRPODS_INDEX]: Math.max(airConnectPress, airDisconnectPress),
-                [ECHO_INDEX]: echoPress,
-              }}
+              keyPresses={{ [AIRPODS_INDEX]: press }}
               keyGlows={{
-                [AIRPODS_INDEX]: Math.max(airGlow, syncGlow),
-                [ECHO_INDEX]: Math.max(echoGlow, syncGlow * 0.82),
+                [AIRPODS_INDEX]: Math.max(connectedGlow, routeGlow),
               }}
             />
-            <StatusTrail state={activeState(frame)} />
-            <WorkflowBadges opacity={workflowOpacity} />
-            <AudioProfileBadges mode="headset" opacity={headsetProfiles} />
-            <AudioProfileBadges mode="speaker" opacity={speakerProfiles} />
-            <Sequence from={AIR_TAP - 18} durationInFrames={52} layout="none">
+            <StatusTrail state={state} />
+            <SameKeyCard mode={mode} opacity={opacity} />
+            <RoutingCard mode={mode} frame={frame} opacity={opacity} />
+            <Sequence from={tapAt - 18} durationInFrames={52} layout="none">
               <TapWrap x={HERO_X} />
-            </Sequence>
-            <Sequence
-              from={AIR_DISCONNECT_TAP - 18}
-              durationInFrames={52}
-              layout="none"
-            >
-              <TapWrap x={HERO_X} />
-            </Sequence>
-            <Sequence from={ECHO_TAP - 18} durationInFrames={52} layout="none">
-              <TapWrap x={ECHO_X} />
             </Sequence>
           </div>
         </div>
@@ -436,99 +475,98 @@ const TapWrap: React.FC<{ x: number }> = ({ x }) => {
 
 const audioVol =
   (a: number, b: number, c: number, d: number, peak: number) =>
-  (f: number) =>
-    interpolate(f, [a, b, c, d], [0, peak, peak, 0], {
+  (frame: number) =>
+    interpolate(frame, [a, b, c, d], [0, peak, peak, 0], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
 
 export const BluetoothPromo: React.FC = () => {
   const frame = useCurrentFrame();
-  const footerOpacity = interpolate(frame, [STAGE_IN, STAGE_IN + 30, CLOSE_AT - 30, CLOSE_AT], [
-    0, 1, 1, 0,
-  ]);
+  const footerOpacity = interpolate(
+    frame,
+    [AIR_STAGE_IN, AIR_STAGE_IN + 30, CLOSE_AT - 30, CLOSE_AT],
+    [0, 1, 1, 0],
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }
+  );
 
   return (
     <AbsoluteFill style={{ background: COLORS.bgBottom }}>
       <Background />
 
-      <Sequence from={0} durationInFrames={SETUP_A_DURATION}>
+      <Sequence from={0} durationInFrames={INITIAL_SETUP_DURATION}>
         <SoftwareSetup
           title="AirPods"
           device="AirPods Pro"
+          audioProfile="Stereo + microphone (A2DP + Hands-Free)"
           selectedIndex={AIRPODS_INDEX}
-          stepLabel="Key 1"
-          stepTitle="Add the Bluetooth action"
-          stepSubtitle="Set the classic Title field, then choose the paired device."
+          showEcho={false}
+          stepLabel="Current setup"
+          stepTitle="Configure one Bluetooth key"
+          stepSubtitle="Choose the paired device and its Windows audio profile."
           showDrag
-          duration={SETUP_A_DURATION}
-        />
-      </Sequence>
-      <Sequence from={SETUP_B_IN} durationInFrames={SETUP_B_DURATION}>
-        <SoftwareSetup
-          title="Echo Dot"
-          device="Amazon Echo Dot"
-          selectedIndex={ECHO_INDEX}
-          showEcho
-          stepLabel="Key 2"
-          stepTitle="Use the same action again"
-          stepSubtitle="Each key keeps its own title and Bluetooth device."
-          showDrag
-          duration={SETUP_B_DURATION}
+          duration={INITIAL_SETUP_DURATION}
         />
       </Sequence>
 
-      <Stage />
-
-      <Sequence from={590} durationInFrames={300}>
+      <Sequence from={AIR_STAGE_IN} durationInFrames={AIR_STAGE_DURATION}>
+        <ConnectionStage mode="airpods" duration={AIR_STAGE_DURATION} />
+      </Sequence>
+      <Sequence from={AIR_STAGE_IN + 12} durationInFrames={258}>
         <Caption
           eyebrow="One press"
-          title="No Windows settings"
-          subtitle="Audio output and microphone switch from the key"
+          title="Connect AirPods"
+          subtitle="After Bluetooth connects, Windows playback is selected and verified"
         />
       </Sequence>
-      <Sequence from={900} durationInFrames={270}>
-        <Caption
-          eyebrow="Same key"
-          title="Press again to disconnect"
-          subtitle="The selected device toggles back to disconnected"
-          accent={COLORS.blue}
+      <Sequence from={AIR_CONNECTED_AT} durationInFrames={90}>
+        <Popup
+          title="Connected!"
+          subtitle="Windows playback: AirPods Pro"
+          color={COLORS.connected}
+          icon="check"
+          outAt={66}
         />
       </Sequence>
-      <Sequence from={1160} durationInFrames={300}>
+
+      <Sequence from={EDIT_IN} durationInFrames={EDIT_DURATION}>
+        <SoftwareSetup
+          title="Echo Dot"
+          device="Echo Dot"
+          audioProfile="Stereo only (A2DP)"
+          selectedIndex={AIRPODS_INDEX}
+          showEcho={false}
+          stepLabel="Same key"
+          stepTitle="Change AirPods to Echo Dot"
+          stepSubtitle="The previous target is retained for the next press."
+          duration={EDIT_DURATION}
+        />
+      </Sequence>
+
+      <Sequence from={HANDOFF_STAGE_IN} durationInFrames={HANDOFF_STAGE_DURATION}>
+        <ConnectionStage mode="handoff" duration={HANDOFF_STAGE_DURATION} />
+      </Sequence>
+      <Sequence
+        from={HANDOFF_STAGE_IN + 12}
+        durationInFrames={CLOSE_AT - HANDOFF_STAGE_IN - 12}
+      >
         <Caption
-          eyebrow="Multiple keys"
-          title="One key per audio device"
-          subtitle="Headsets, speakers, and Bluetooth mics stay separate"
+          eyebrow="Automatic handoff"
+          title="Press the same key again"
+          subtitle="AirPods disconnects, Echo connects, then Windows output is verified"
           accent={COLORS.connected}
         />
       </Sequence>
-
-      <Sequence from={AIR_CONNECTED_AT} durationInFrames={114}>
+      <Sequence from={ECHO_CONNECTED_AT} durationInFrames={126}>
         <Popup
           title="Connected!"
-          subtitle="AirPods Pro audio + mic"
+          subtitle="Windows playback: Echo Dot"
           color={COLORS.connected}
           icon="check"
-          outAt={86}
-        />
-      </Sequence>
-      <Sequence from={AIR_DISCONNECTED_AT} durationInFrames={118}>
-        <Popup
-          title="Disconnected"
-          subtitle="AirPods Pro audio + mic"
-          color={COLORS.blue}
-          icon="bluetooth"
-          outAt={90}
-        />
-      </Sequence>
-      <Sequence from={ECHO_CONNECTED_AT} durationInFrames={118}>
-        <Popup
-          title="Connected!"
-          subtitle="Amazon Echo Dot speaker audio"
-          color={COLORS.connected}
-          icon="check"
-          outAt={90}
+          outAt={96}
         />
       </Sequence>
 
@@ -542,7 +580,7 @@ export const BluetoothPromo: React.FC = () => {
         src={staticFile("audio/music.mp3")}
         volume={audioVol(0, 36, DURATION - 70, DURATION, 0.55)}
       />
-      {[AIR_TAP, AIR_DISCONNECT_TAP, ECHO_TAP].map((at) => (
+      {[AIR_TAP, HANDOFF_TAP].map((at) => (
         <Sequence key={at} from={at} durationInFrames={20}>
           <Audio src={staticFile("audio/click.mp3")} volume={0.8} />
         </Sequence>
@@ -552,12 +590,11 @@ export const BluetoothPromo: React.FC = () => {
           <Audio src={staticFile("audio/connected.mp3")} volume={0.9} />
         </Sequence>
       ))}
-      <Sequence from={STAGE_IN - 8} durationInFrames={40}>
-        <Audio src={staticFile("audio/whoosh.mp3")} volume={0.55} />
-      </Sequence>
-      <Sequence from={CLOSE_AT} durationInFrames={60}>
-        <Audio src={staticFile("audio/whoosh.mp3")} volume={0.5} />
-      </Sequence>
+      {[AIR_STAGE_IN - 8, HANDOFF_STAGE_IN - 8, CLOSE_AT].map((at) => (
+        <Sequence key={at} from={at} durationInFrames={50}>
+          <Audio src={staticFile("audio/whoosh.mp3")} volume={0.5} />
+        </Sequence>
+      ))}
     </AbsoluteFill>
   );
 };
