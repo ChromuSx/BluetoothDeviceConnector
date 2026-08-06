@@ -23,12 +23,14 @@
   <a href="https://www.paypal.com/paypalme/giovanniguarino1999"><img src="https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal"></a>
 </p>
 <p align="center">
-  <strong>🔗 BluetoothDeviceConnector is a script created in AutoHotkey that allows you to automatically connect a specific Bluetooth device, such as "AirPods Pro". This script uses the Windows Bluetooth Control Panel to find and connect the specified device.</strong>
+  <strong>🔗 BluetoothDeviceConnector is an AutoHotkey script that connects or disconnects a paired Bluetooth audio device with either stereo-only playback or stereo plus microphone support.</strong>
 </p>
 
 ## ✨ Features
-- Automatically searches for the specified Bluetooth device.
-- Connects the device to Handsfree services (for voice communication) and AudioSink services (for music streaming).
+- Automatically searches for the specified paired Bluetooth device.
+- Connects or disconnects the device using editable defaults or command-line arguments.
+- Selects **Stereo only (A2DP)** or **Stereo + microphone (A2DP + Hands-Free)**.
+- Supports speaker-only devices that do not expose a Hands-Free profile.
 - Provides visual notifications for success or errors.
 - **🎮 Stream Deck Integration**: One-click Bluetooth connection directly from your Elgato Stream Deck!
 
@@ -76,29 +78,40 @@ This project includes an **official Stream Deck plugin** that lets you connect y
 3. **Run the script**: Double-click the `.ahk` file to run the script.
 
 ### ⚙️ Configuration
-Modify the `deviceName` variable at the beginning of the script to match the name of the Bluetooth device you want to connect. By default, it is set to "AirPods Pro":
+Modify the three variables at the beginning of the script. Existing behavior remains the default: connect `AirPods Pro` with stereo playback and its Hands-Free microphone enabled.
 
 ```ahk
 deviceName := "AirPods Pro"
+action := "connect"           ; "connect" or "disconnect"
+audioProfile := "a2dp-hfp"   ; "a2dp" or "a2dp-hfp"
 ```
 
-Change this value to connect other devices.
+Use `audioProfile := "a2dp"` when you want stereo playback without enabling the Windows Hands-Free microphone profile.
+
+The same values can be supplied without editing the file:
+
+```powershell
+AutoHotkey64.exe bluetooth_device_connector.ahk "Echo Dot" connect a2dp
+AutoHotkey64.exe bluetooth_device_connector.ahk "AirPods Pro" disconnect a2dp-hfp
+```
 
 ## 🧠 How It Works
-The script uses a system library (`Bthprops.cpl`) to search for the desired Bluetooth device. If the device is found, it will attempt to activate two services:
+The script uses the Windows Bluetooth Control Panel library (`Bthprops.cpl`) to find the desired device and manage two services:
 
 - **Handsfree**: Connection for voice communications (e.g., calls).
 - **AudioSink**: Connection for audio streaming (e.g., music).
 
-A confirmation message will be displayed if the device is successfully connected.
+Stereo-only mode disables Hands-Free before enabling AudioSink. Combined mode enables both services, while disconnect mode disables both. Devices that expose only one applicable audio service remain supported.
 
 ## 🔔 Notifications
 The script will display notifications in case of:
 - No Bluetooth device found.
-- Device successfully connected.
+- Device successfully connected or disconnected.
+- Invalid action or audio-profile configuration.
 
 ## ⚠️ Limitations
-- The script is designed to connect to a specific device. It does not support multiple connections or advanced Bluetooth device management.
+- Each launch operates on one configured device; use command-line arguments or separate script copies for multiple targets.
+- The standalone script manages Bluetooth services but does not change the Windows default playback endpoint. The Stream Deck plugin includes verified default-device routing.
 - It works only on Windows, using the Bluetooth libraries provided by the operating system.
 
 ## 🛠️ Customization

@@ -90,6 +90,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- The standalone AutoHotkey script now supports configurable `connect` and `disconnect` actions plus `a2dp` and `a2dp-hfp` audio profiles through editable defaults or command-line arguments.
+
+### Changed
+- Stereo-only standalone connections explicitly disable Hands-Free before enabling A2DP, while combined mode preserves the previous stereo-plus-microphone behavior.
+- The standalone script now uses the same bounded retry and speaker-only compatibility rules as the Windows helper bundled with the Stream Deck plugin.
+
 ### Planned Features
 - Configurable connection timeout
 - Custom sound notifications

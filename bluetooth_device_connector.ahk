@@ -1,102 +1,183 @@
 #Requires AutoHotkey v2.0
+#SingleInstance Force
 
-TraySetIcon("C:\WINDOWS\system32\netshell.dll", 104) ; Set the tray icon to a network-related icon from system resources
+TraySetIcon("C:\WINDOWS\system32\netshell.dll", 104)
 
-deviceName := "AirPods Pro" ; Define the name of the Bluetooth device to connect to
+; =====================================================================
+;  Configuration
+; =====================================================================
+; These defaults are used when the script is launched without arguments.
+; audioProfile: "a2dp" keeps stereo playback only and disables Hands-Free.
+;               "a2dp-hfp" enables stereo playback plus the microphone.
+deviceName := "AirPods Pro"
+action := "connect"
+audioProfile := "a2dp-hfp"
 
-; Dynamically loads the Bluetooth Control Panel library to use its functions
-DllCall("LoadLibrary", "str", "Bthprops.cpl", "ptr")
+; Optional command line:
+; AutoHotkey64.exe bluetooth_device_connector.ahk "Device name" [connect|disconnect] [a2dp|a2dp-hfp]
+if (A_Args.Length > 0)
+    deviceName := A_Args[1]
+if (A_Args.Length > 1)
+    action := A_Args[2]
+if (A_Args.Length > 2)
+    audioProfile := A_Args[3]
 
-; Desired service state (1 = enable/connect)
-toggleOn := 1
+action := StrLower(action)
+audioProfile := StrLower(audioProfile)
 
-; Set maximum retry attempts to prevent infinite loops
-maxRetries := 10
-
-; Calculate structure size based on pointer size
-structSize := 24 + A_PtrSize * 2
-
-; Initialize the structure for Bluetooth device search parameters with appropriate size and default values
-BLUETOOTH_DEVICE_SEARCH_PARAMS := Buffer(structSize, 0)
-NumPut("uint", structSize, BLUETOOTH_DEVICE_SEARCH_PARAMS, 0) ; Set the size of the structure
-NumPut("uint", 1, BLUETOOTH_DEVICE_SEARCH_PARAMS, 4) ; fReturnAuthenticated: return paired devices
-
-; Initialize the structure to hold information about a Bluetooth device with appropriate size
-BLUETOOTH_DEVICE_INFO := Buffer(560, 0)
-NumPut("uint", 560, BLUETOOTH_DEVICE_INFO, 0) ; Set the size of the structure
-
-; Loop through all found Bluetooth devices to find and connect to the specified device
-loop
+if (Trim(deviceName) = "")
 {
-    ; On the first iteration, use BluetoothFindFirstDevice to start the search
-    if (A_Index = 1)
-    {
-        foundDevice := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", BLUETOOTH_DEVICE_SEARCH_PARAMS, "ptr", BLUETOOTH_DEVICE_INFO, "ptr")
-        if !foundDevice
-        {
-            MsgBox("No bluetooth devices found") ; Display message if no Bluetooth devices are found
-            return
-        }
-    }
-    else
-    {
-        ; On subsequent iterations, use BluetoothFindNextDevice to continue the search
-        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", foundDevice, "ptr", BLUETOOTH_DEVICE_INFO)
-        {
-            MsgBox("Target Bluetooth device not found") ; Display message if the specific device is not found
-            break
-        }
-    }
-    ; Check if the current device is the target device by comparing its name
-    if (InStr(StrGet(BLUETOOTH_DEVICE_INFO.Ptr + 64, "UTF-16"), deviceName))
-    {
-        deviceNameActual := StrGet(BLUETOOTH_DEVICE_INFO.Ptr + 64, "UTF-16") ; Retrieve the actual name of the device
-
-        ; Handsfree (HFP): voice communication. Present on headsets/earbuds, absent on speakers.
-        hfStatus := ToggleBluetoothService(BLUETOOTH_DEVICE_INFO, "{0000111e-0000-1000-8000-00805f9b34fb}", toggleOn, maxRetries)
-
-        ; AudioSink (A2DP): music streaming. Present on virtually all audio output devices.
-        asStatus := ToggleBluetoothService(BLUETOOTH_DEVICE_INFO, "{0000110b-0000-1000-8000-00805f9b34fb}", toggleOn, maxRetries)
-
-        ; Consider the operation successful if AT LEAST ONE audio profile was toggled.
-        ; This supports speaker-only devices (e.g. Echo Dot, Bluetooth speakers) that expose
-        ; only AudioSink, as well as headsets/earbuds that expose both profiles.
-        if (hfStatus = "ok" || asStatus = "ok")
-            MsgBox("Bluetooth device " . deviceNameActual . " connected") ; Notify the user that the device has been connected
-        else
-            MsgBox("Failed to connect " . deviceNameActual . " (Handsfree: " . hfStatus . ", AudioSink: " . asStatus . ")")
-        break
-    }
+    MsgBox("Set deviceName to the name of a paired Bluetooth device.", "Bluetooth Device Connector", "Iconx")
+    ExitApp(64)
 }
 
-; Toggle a single Bluetooth service to the desired state.
-; Returns: "ok" (reached desired state), "absent" (device lacks this profile),
-;          or "fail" (retries exhausted without success).
+if (action != "connect" && action != "disconnect")
+{
+    MsgBox("Unknown action '" . action . "'. Expected connect or disconnect.", "Bluetooth Device Connector", "Iconx")
+    ExitApp(64)
+}
+
+if (audioProfile != "a2dp" && audioProfile != "a2dp-hfp")
+{
+    MsgBox("Unknown audio profile '" . audioProfile . "'. Expected a2dp or a2dp-hfp.", "Bluetooth Device Connector", "Iconx")
+    ExitApp(64)
+}
+
+; Load the Windows Bluetooth Control Panel API used to manage audio services.
+DllCall("LoadLibrary", "str", "Bthprops.cpl", "ptr")
+
+maxRetries := 10
+device := FindDeviceByName(deviceName)
+if (!device)
+{
+    MsgBox("Target Bluetooth device '" . deviceName . "' not found. Pair it in Windows first and verify its name.", "Bluetooth Device Connector", "Iconx")
+    ExitApp(2)
+}
+
+deviceNameActual := StrGet(device.Ptr + 64, "UTF-16")
+
+if (action = "connect")
+{
+    ; Stereo-only mode explicitly disables HFP before enabling A2DP, preventing
+    ; Windows from switching playback to the low-quality call profile.
+    hfToggleOn := (audioProfile = "a2dp-hfp") ? 1 : 0
+    hfStatus := ToggleBluetoothService(device, "{0000111e-0000-1000-8000-00805f9b34fb}", hfToggleOn, maxRetries)
+    asStatus := ToggleBluetoothService(device, "{0000110b-0000-1000-8000-00805f9b34fb}", 1, maxRetries)
+}
+else
+{
+    ; Disconnect both services so HFP cannot keep the device connected after
+    ; a stereo-only session.
+    hfStatus := ToggleBluetoothService(device, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
+    asStatus := ToggleBluetoothService(device, "{0000110b-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
+}
+
+if (IsSuccessfulOperation(action, audioProfile, hfStatus, asStatus))
+{
+    operationLabel := (action = "connect") ? "connected" : "disconnected"
+    profileDetails := (action = "connect") ? "`nProfile: " . AudioProfileLabel(audioProfile) : ""
+    MsgBox("Bluetooth device '" . deviceNameActual . "' " . operationLabel . "." . profileDetails, "Bluetooth Device Connector", "Iconi")
+    ExitApp(0)
+}
+
+MsgBox("Failed to " . action . " '" . deviceNameActual . "'.`nHands-Free: " . hfStatus . "`nAudioSink: " . asStatus, "Bluetooth Device Connector", "Iconx")
+ExitApp(3)
+
+
+; =====================================================================
+;  Helper functions
+; =====================================================================
+
+AudioProfileLabel(audioProfile)
+{
+    return (audioProfile = "a2dp") ? "Stereo only (A2DP)" : "Stereo + microphone (A2DP + Hands-Free)"
+}
+
+; Build search parameters that enumerate paired (authenticated) devices.
+MakeSearchParams()
+{
+    structSize := 24 + A_PtrSize * 2
+    searchParams := Buffer(structSize, 0)
+    NumPut("uint", structSize, searchParams, 0)
+    NumPut("uint", 1, searchParams, 4)
+    return searchParams
+}
+
+; Return the first paired device whose name contains targetName, or 0.
+FindDeviceByName(targetName)
+{
+    searchParams := MakeSearchParams()
+    deviceInfo := Buffer(560, 0)
+    NumPut("uint", 560, deviceInfo, 0)
+
+    searchHandle := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", searchParams, "ptr", deviceInfo, "ptr")
+    if !searchHandle
+        return 0
+
+    match := 0
+    loop
+    {
+        if (InStr(StrGet(deviceInfo.Ptr + 64, "UTF-16"), targetName))
+        {
+            match := deviceInfo
+            break
+        }
+        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", searchHandle, "ptr", deviceInfo)
+            break
+    }
+
+    DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", searchHandle)
+    return match
+}
+
+; Stereo-only success requires A2DP. Combined connects and disconnects require
+; every exposed service to reach the requested state, while allowing devices
+; that legitimately lack either Hands-Free or AudioSink.
+IsSuccessfulOperation(action, audioProfile, hfStatus, asStatus)
+{
+    if (action = "connect" && audioProfile = "a2dp")
+        return (asStatus = "ok" && (hfStatus = "ok" || hfStatus = "absent"))
+
+    allExposedSucceeded := (hfStatus = "ok" || hfStatus = "absent")
+        && (asStatus = "ok" || asStatus = "absent")
+    atLeastOneProfileExists := (hfStatus = "ok" || asStatus = "ok")
+    return (allExposedSucceeded && atLeastOneProfileExists)
+}
+
+; Toggle one Bluetooth audio service to the desired state.
+; Returns "ok", "absent", or "fail:0x...".
 ToggleBluetoothService(deviceInfo, serviceGuidStr, toggleOn, maxRetries)
 {
-    ; Convert the service class GUID string into a binary CLSID
     serviceGuid := Buffer(16)
     DllCall("ole32\CLSIDFromString", "wstr", serviceGuidStr, "ptr", serviceGuid)
 
     toggle := toggleOn
     retryCount := 0
+    lastHr := 0
     loop
     {
-        hr := DllCall("Bthprops.cpl\BluetoothSetServiceState", "ptr", 0, "ptr", deviceInfo, "ptr", serviceGuid, "int", toggle)
+        hr := DllCall("Bthprops.cpl\BluetoothSetServiceState", "ptr", 0, "ptr", deviceInfo, "ptr", serviceGuid, "int", toggle, "uint")
+        lastHr := hr
 
-        if (hr = 0) ; Operation succeeded
+        if (hr = 0)
         {
             if (toggle = toggleOn)
-                return "ok" ; Reached the desired state
-            toggle := !toggle ; Reached intermediate state, flip toward the desired one
-        }
-        else if (hr = 87) ; ERROR_INVALID_PARAMETER: known quirk, flip the state and retry
+                return "ok"
             toggle := !toggle
-        else if (hr = 1060) ; ERROR_SERVICE_DOES_NOT_EXIST: device does not expose this profile
+        }
+        else if (hr = 87 || hr = 0x80070057)
+        {
+            if (toggle = toggleOn && toggleOn = 0)
+                return "ok"
+            toggle := !toggle
+        }
+        else if (hr = 1060)
+            return "absent"
+        else if (hr = 1168 && toggleOn = 0 && StrLower(serviceGuidStr) = "{0000111e-0000-1000-8000-00805f9b34fb}")
             return "absent"
 
         retryCount++
         if (retryCount >= maxRetries)
-            return "fail"
+            return "fail:0x" . Format("{:08X}", lastHr)
     }
 }
