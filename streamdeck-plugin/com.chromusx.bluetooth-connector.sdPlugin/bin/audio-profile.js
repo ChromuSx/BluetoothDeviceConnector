@@ -4,6 +4,8 @@ exports.AUDIO_PROFILE_A2DP_HFP = exports.AUDIO_PROFILE_A2DP = void 0;
 exports.normalizeAudioProfile = normalizeAudioProfile;
 exports.buildHelperArgs = buildHelperArgs;
 exports.chooseConnectionAction = chooseConnectionAction;
+exports.resolveObservedConnectionState = resolveObservedConnectionState;
+exports.resolvePolledConnectionState = resolvePolledConnectionState;
 exports.AUDIO_PROFILE_A2DP = 'a2dp';
 exports.AUDIO_PROFILE_A2DP_HFP = 'a2dp-hfp';
 // Settings created before audio profiles were configurable have no value here.
@@ -25,4 +27,23 @@ function buildHelperArgs(deviceName, action, audioProfile, platform) {
 }
 function chooseConnectionAction(isConnected, needsReconcile) {
     return isConnected && !needsReconcile ? 'disconnect' : 'connect';
+}
+// Prefer an observed endpoint state when it is conclusive. Unknown checks keep
+// the last plugin-owned state so a transient helper failure cannot flip a key.
+function resolveObservedConnectionState(cachedConnected, observedStatus) {
+    if (observedStatus === 'connected')
+        return true;
+    if (observedStatus === 'disconnected' || observedStatus === 'not-found') {
+        return false;
+    }
+    return cachedConnected;
+}
+// Background polling is intentionally one-way: it may clear a stale connected
+// state, but only a completed connect action may turn a key green. This avoids
+// transient Windows endpoints appearing as successful connections.
+function resolvePolledConnectionState(cachedConnected, observedStatus) {
+    if (observedStatus === 'disconnected' || observedStatus === 'not-found') {
+        return false;
+    }
+    return cachedConnected;
 }

@@ -9,6 +9,7 @@
     "build": "tsc && node scripts/copy-assets.js",
     "build:windows-helpers": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-helpers.ps1",
     "build:windows": "npm run build:windows-helpers && npm run build",
+    "build:diagnostic": "npm run build:windows && node scripts/build-diagnostic.js",
     "test": "npm run build && node --test tests/*.test.js",
     "watch": "tsc --watch"
   },

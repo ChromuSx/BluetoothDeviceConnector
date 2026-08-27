@@ -92,7 +92,10 @@ WriteOutput(message)
 {
     try
     {
-        FileAppend(message, "*")
+        ; Node.js decodes helper stdout as UTF-8. Without an explicit encoding,
+        ; AutoHotkey uses the system ANSI code page and corrupts device names
+        ; containing smart punctuation or non-Latin characters.
+        FileAppend(message, "*", "UTF-8-RAW")
     }
     catch
     {

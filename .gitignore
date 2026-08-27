@@ -5,6 +5,8 @@ streamdeck-plugin/node_modules/
 streamdeck-plugin/.sdPlugin/node_modules/
 streamdeck-plugin/.sdPlugin/bin/*.js
 streamdeck-plugin/.sdPlugin/bin/*.js.map
+streamdeck-plugin/diagnostic-build/
+streamdeck-plugin/dist/
 streamdeck-plugin/macos-helper/.build/
 *.streamDeckPlugin
 

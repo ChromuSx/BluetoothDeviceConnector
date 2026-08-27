@@ -9,6 +9,8 @@ const {
   buildHelperArgs,
   chooseConnectionAction,
   normalizeAudioProfile,
+  resolveObservedConnectionState,
+  resolvePolledConnectionState,
 } = require('../com.chromusx.bluetooth-connector.sdPlugin/bin/audio-profile.js');
 const {
   buildExclusiveConnectionPlan,
@@ -59,6 +61,25 @@ test('ambiguous Windows state reconnects before normal toggling', () => {
   assert.equal(chooseConnectionAction(true, false), 'disconnect');
   assert.equal(chooseConnectionAction(true, true), 'connect');
   assert.equal(chooseConnectionAction(false, true), 'connect');
+});
+
+test('a conclusive endpoint observation replaces stale plugin state', () => {
+  assert.equal(resolveObservedConnectionState(true, 'disconnected'), false);
+  assert.equal(resolveObservedConnectionState(true, 'not-found'), false);
+  assert.equal(resolveObservedConnectionState(false, 'connected'), true);
+});
+
+test('an unknown endpoint observation preserves the cached state', () => {
+  assert.equal(resolveObservedConnectionState(true, 'unknown'), true);
+  assert.equal(resolveObservedConnectionState(false, 'unknown'), false);
+});
+
+test('polling clears stale green state but never creates a green state', () => {
+  assert.equal(resolvePolledConnectionState(true, 'disconnected'), false);
+  assert.equal(resolvePolledConnectionState(true, 'not-found'), false);
+  assert.equal(resolvePolledConnectionState(true, 'connected'), true);
+  assert.equal(resolvePolledConnectionState(false, 'connected'), false);
+  assert.equal(resolvePolledConnectionState(false, 'unknown'), false);
 });
 
 test('device changes preserve the first handoff target until the next press', () => {

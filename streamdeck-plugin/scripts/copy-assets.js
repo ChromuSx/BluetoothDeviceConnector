@@ -31,6 +31,7 @@ const criticalFiles = [
   'bin/plugin.js',
   'bin/audio-profile.js',
   'bin/device-handoff.js',
+  'bin/runtime-mode.js',
   process.platform === 'darwin' ? 'BluetoothConnectorMac' : 'BluetoothConnector.exe',
   ...(process.platform === 'win32' ? ['AudioEndpointRouter.exe'] : []),
   'node_modules/ws/index.js',

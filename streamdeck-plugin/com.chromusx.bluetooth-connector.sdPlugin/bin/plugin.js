@@ -39,6 +39,7 @@ const path = __importStar(require("path"));
 const WebSocketLib = __importStar(require("ws"));
 const audio_profile_1 = require("./audio-profile");
 const device_handoff_1 = require("./device-handoff");
+const runtime_mode_1 = require("./runtime-mode");
 const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 let ws;
 const settingsCache = new Map();
@@ -49,8 +50,11 @@ const executionLock = new Map(); // Prevent concurrent executions per context
 const stateRevision = new Map(); // Ignore status checks made stale by actions/settings.
 const feedbackRevision = new Map(); // Prevent old UI timers overwriting newer actions/settings.
 const pendingSettingsEchoes = new Map(); // Ignore our own delayed setSettings echoes.
-const pluginUUID = 'com.chromusx.bluetooth-connector';
-const connectActionUUID = `${pluginUUID}.connect`;
+const visibleContexts = new Set(); // Poll only actions currently visible on Stream Deck.
+const statusPollTimers = new Map();
+const STATUS_POLL_INTERVAL_MS = 5000;
+let connectActionUUID = `${runtime_mode_1.PRODUCTION_PLUGIN_UUID}.connect`;
+let diagnosticMode = false;
 // Resolve the platform-specific native helper relative to bin/plugin.js.
 function helperPath() {
     if (process.platform === 'win32') {
@@ -99,6 +103,7 @@ function handleMessage(message) {
             break;
         case 'willAppear': {
             let appearanceSettings = (payload?.settings || {});
+            startStatusPolling(context);
             if (payload?.settings) {
                 const cachedSettings = settingsCache.get(context);
                 const hasPendingWrite = (pendingSettingsEchoes.get(context)?.length || 0) > 0;
@@ -125,6 +130,9 @@ function handleMessage(message) {
             syncVisualState(context, appearanceSettings);
             break;
         }
+        case 'willDisappear':
+            stopStatusPolling(context);
+            break;
         case 'sendToPlugin':
             // The Property Inspector asks for the list of paired devices.
             if (payload?.event === 'getDevices') {
@@ -240,22 +248,36 @@ async function handleConnectAction(context, settings) {
     if (handoffFromDeviceName) {
         pendingHandoff.set(context, handoffFromDeviceName);
     }
-    // A device-wide Windows Bluetooth connection does not prove that the chosen
-    // audio services are active. Reconciliation applies them first; later presses
-    // can use the plugin-observed toggle state.
-    const isConnected = connectionState.get(context) || false;
-    const shouldReconcile = needsReconcile.has(context);
-    const action = handoffFromDeviceName
-        ? 'connect'
-        : (0, audio_profile_1.chooseConnectionAction)(isConnected, shouldReconcile);
-    const wasConnected = !handoffFromDeviceName && isConnected && !shouldReconcile;
+    let action = 'connect';
+    let wasConnected = false;
     // Set to "Connecting" state (state 1)
     setState(context, 1);
     let attemptedCommand;
     try {
+        let isConnected = connectionState.get(context) || false;
+        const shouldReconcile = needsReconcile.has(context);
+        if (!handoffFromDeviceName) {
+            // External disconnects (closing a case, changing host, etc.) do not emit
+            // a Stream Deck event. Refresh from the active Windows audio endpoint so
+            // a stale green key cannot issue the opposite operation.
+            const observedStatus = await getEffectiveConnectionStatus(deviceName, audioProfile);
+            if (settingsChangedDuringOperation(context, operationSettingsKey)) {
+                keepNewSettingsPending(context, undefined, deviceName);
+                return;
+            }
+            isConnected = (0, audio_profile_1.resolveObservedConnectionState)(isConnected, observedStatus);
+            if (observedStatus !== 'unknown') {
+                connectionState.set(context, isConnected);
+            }
+        }
+        action = handoffFromDeviceName
+            ? 'connect'
+            : (0, audio_profile_1.chooseConnectionAction)(isConnected, shouldReconcile);
+        wasConnected = !handoffFromDeviceName && isConnected && !shouldReconcile;
+        setTitle(context, 'Wait...');
         let handoffStatus = 'not-found';
         if (handoffFromDeviceName) {
-            handoffStatus = await getDeviceStatus(handoffFromDeviceName, audioProfile);
+            handoffStatus = await getEffectiveConnectionStatus(handoffFromDeviceName, audioProfile);
             if (settingsChangedDuringOperation(context, operationSettingsKey)) {
                 keepNewSettingsPending(context, undefined, deviceName);
                 return;
@@ -299,7 +321,6 @@ async function handleConnectAction(context, settings) {
             // Just connected - show connected state
             setState(context, 2);
             setTitle(context, 'Connected!');
-            showOK(context);
             playSound('success');
             logMessage(`Connected to ${deviceName} using ${audioProfile}`);
             scheduleFeedback(context, () => setTitle(context, ''), 2000);
@@ -308,7 +329,6 @@ async function handleConnectAction(context, settings) {
             // Just disconnected - return to disconnected state
             setState(context, 0);
             setTitle(context, 'Disconnected!');
-            showOK(context);
             playSound('success');
             logMessage(`Disconnected from ${deviceName}`);
             scheduleFeedback(context, () => setTitle(context, ''), 2000);
@@ -341,14 +361,40 @@ async function handleConnectAction(context, settings) {
 // Show the error state, then revert to the previous state after 3 seconds.
 function showError(context, wasConnected, logText) {
     setState(context, 3);
-    setTitle(context, 'Error!');
+    setTitle(context, diagnosticMode ? (0, runtime_mode_1.diagnosticErrorTitle)(logText) : 'Error!');
     showAlert(context);
     playSound('error');
     logMessage(logText);
+    if (diagnosticMode && process.platform === 'win32') {
+        showDiagnosticDialog(logText);
+    }
     scheduleFeedback(context, () => {
         setState(context, wasConnected ? 2 : 0);
         setTitle(context, '');
-    }, 3000);
+    }, diagnosticMode ? 30000 : 3000);
+}
+function showDiagnosticDialog(logText) {
+    const scriptPath = path.join(__dirname, '..', 'ShowDiagnosticError.ps1');
+    const message = [
+        'Bluetooth Device Connector diagnostic result',
+        '',
+        String(logText || 'Unknown error').trim(),
+        '',
+        'Please use Copy diagnostic and include the result in your GitHub issue or support request.',
+    ].join('\r\n');
+    (0, child_process_1.execFile)('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-STA',
+        '-File',
+        scriptPath,
+        '-Message',
+        message,
+    ], { windowsHide: true }, (error) => {
+        if (error)
+            logMessage(`Failed to show diagnostic dialog: ${error.message}`);
+    });
 }
 // Query the executable for the list of paired Bluetooth device names.
 async function listDevices() {
@@ -383,6 +429,28 @@ async function getDeviceStatus(deviceName, audioProfile) {
         return 'unknown';
     }
 }
+// Windows can report a Bluetooth device-wide connection while both audio
+// services are inactive. An active render endpoint is the state relevant to
+// this action and is therefore the authoritative Windows signal.
+async function getAudioEndpointStatus(deviceName) {
+    try {
+        const { stdout } = await execFileAsync(audioRouterPath(), ['--status', deviceName], { timeout: 5000 });
+        // Order matters: the string "DISCONNECTED" contains "CONNECTED".
+        if (stdout.includes('DISCONNECTED'))
+            return 'disconnected';
+        if (stdout.includes('CONNECTED'))
+            return 'connected';
+        return 'unknown';
+    }
+    catch {
+        return 'unknown';
+    }
+}
+function getEffectiveConnectionStatus(deviceName, audioProfile) {
+    return process.platform === 'win32'
+        ? getAudioEndpointStatus(deviceName)
+        : getDeviceStatus(deviceName, audioProfile);
+}
 // On appear (or after a settings change), reflect the device's real connection
 // state on the key so the icon is correct even after a Stream Deck restart.
 async function syncVisualState(context, settings) {
@@ -390,31 +458,44 @@ async function syncVisualState(context, settings) {
         return;
     const revision = (stateRevision.get(context) || 0) + 1;
     stateRevision.set(context, revision);
-    const status = await getDeviceStatus(settings.deviceName, settings.audioProfile);
+    const status = await getEffectiveConnectionStatus(settings.deviceName, settings.audioProfile);
     // Ignore a stale status request that completed after settings changed or the
     // user pressed the key.
     if (stateRevision.get(context) !== revision || needsReconcile.has(context))
         return;
-    if (status === 'connected') {
-        if (process.platform === 'win32' && connectionState.get(context) !== true) {
-            // Windows only reports a device-wide Bluetooth connection here. Neither
-            // A2DP nor HFP is proven active, so a fresh/reconfigured key must apply
-            // its selected profile before normal plugin-observed toggling resumes.
-            needsReconcile.add(context);
-            connectionState.set(context, false);
-            setState(context, 0);
-        }
-        else {
-            connectionState.set(context, true);
-            setState(context, 2);
-        }
-    }
-    else if (status === 'disconnected' || status === 'not-found') {
-        needsReconcile.delete(context);
-        connectionState.set(context, false);
-        setState(context, 0);
+    if (status !== 'unknown') {
+        const isConnected = (0, audio_profile_1.resolvePolledConnectionState)(connectionState.get(context) || false, status);
+        connectionState.set(context, isConnected);
+        if (!isConnected)
+            needsReconcile.delete(context);
+        setState(context, isConnected ? 2 : 0);
     }
     // 'unknown' (e.g. device not currently paired): leave the key as-is.
+}
+function startStatusPolling(context) {
+    stopStatusPolling(context);
+    visibleContexts.add(context);
+    const poll = async () => {
+        if (!visibleContexts.has(context))
+            return;
+        if (!executionLock.get(context)) {
+            const settings = settingsCache.get(context);
+            if (settings)
+                await syncVisualState(context, settings);
+        }
+        if (visibleContexts.has(context)) {
+            statusPollTimers.set(context, setTimeout(poll, STATUS_POLL_INTERVAL_MS));
+        }
+    };
+    statusPollTimers.set(context, setTimeout(poll, STATUS_POLL_INTERVAL_MS));
+}
+function stopStatusPolling(context) {
+    visibleContexts.delete(context);
+    const timer = statusPollTimers.get(context);
+    if (timer)
+        clearTimeout(timer);
+    statusPollTimers.delete(context);
+    invalidatePendingStatus(context);
 }
 function invalidatePendingStatus(context) {
     stateRevision.set(context, (stateRevision.get(context) || 0) + 1);
@@ -525,9 +606,6 @@ function setState(context, state) {
 function setTitle(context, title) {
     sendEvent('setTitle', context, { title });
 }
-function showOK(context) {
-    sendEvent('showOk', context);
-}
 function showAlert(context) {
     sendEvent('showAlert', context);
 }
@@ -580,6 +658,11 @@ for (let i = 0; i < args.length; i += 2) {
     }
 }
 if (params.port && params.pluginUUID && params.registerEvent && params.info) {
+    // -pluginUUID is a per-process registration token, not the UUID declared in
+    // manifest.json. The real plugin UUID is provided inside the info payload.
+    const identity = (0, runtime_mode_1.resolvePluginIdentityFromInfo)(params.info);
+    connectActionUUID = identity.actionUUID;
+    diagnosticMode = identity.diagnostic;
     connectElgatoStreamDeckSocket(params.port, params.pluginUUID, params.registerEvent, params.info);
 }
 else {

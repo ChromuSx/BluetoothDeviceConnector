@@ -239,8 +239,29 @@ int wmain(int argc, wchar_t** argv) {
         return 0;
     }
 
+    if (argc == 3 && _wcsicmp(argv[1], L"--status") == 0) {
+        Endpoint render;
+        hr = FindBestEndpoint(enumerator.Get(), eRender, argv[2], render);
+        if (SUCCEEDED(hr)) {
+            std::wcout << L"CONNECTED\n";
+            CoUninitialize();
+            return 0;
+        }
+        if (hr == HRESULT_FROM_WIN32(ERROR_NOT_FOUND)) {
+            std::wcout << L"DISCONNECTED\n";
+            CoUninitialize();
+            return 0;
+        }
+
+        std::wcerr << L"ERROR: Audio endpoint status check failed (0x"
+                   << std::hex << hr << L")\n";
+        CoUninitialize();
+        return 1;
+    }
+
     if (argc < 2 || argc > 3) {
-        std::wcerr << L"ERROR: Usage: AudioEndpointRouter.exe <device name> [a2dp|a2dp-hfp]\n";
+        std::wcerr << L"ERROR: Usage: AudioEndpointRouter.exe <device name> [a2dp|a2dp-hfp]"
+                   << L" | --status <device name> | --list\n";
         CoUninitialize();
         return 1;
     }
