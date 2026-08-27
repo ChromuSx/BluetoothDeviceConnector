@@ -50,6 +50,12 @@ https://github.com/user-attachments/assets/5979afac-3f7b-4a8e-8ae6-d056be1e6f8e
 
 <sub>▶ Press play for sound. Not rendering in GitHub? <a href="streamdeck-plugin/marketplace/promo.mp4">Download the MP4</a>.</sub>
 
+### 🖼️ Screenshots
+
+![Bluetooth Device Connector switching Windows audio from one Stream Deck key](streamdeck-plugin/marketplace/gallery-hero.png)
+
+![Bluetooth Device Connector Property Inspector with device and audio profile settings](streamdeck-plugin/marketplace/gallery-property-inspector.png)
+
 ### Quick Start
 1. Install directly from the [Elgato Marketplace](https://marketplace.elgato.com/product/bluetooth-device-connector-d7e642fc-1199-4ca0-9849-e303281dd07d) or download from [GitHub Releases](https://github.com/ChromuSx/BluetoothDeviceConnector/releases/latest)
 2. Add the "Connect Bluetooth Device" action to your Stream Deck
