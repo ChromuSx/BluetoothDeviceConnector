@@ -464,7 +464,7 @@ async function syncVisualState(context, settings) {
     if (stateRevision.get(context) !== revision || needsReconcile.has(context))
         return;
     if (status !== 'unknown') {
-        const isConnected = (0, audio_profile_1.resolvePolledConnectionState)(connectionState.get(context) || false, status);
+        const isConnected = (0, audio_profile_1.resolveVisualConnectionState)(connectionState.get(context) || false, status, process.platform);
         connectionState.set(context, isConnected);
         if (!isConnected)
             needsReconcile.delete(context);

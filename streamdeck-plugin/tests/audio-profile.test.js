@@ -11,6 +11,7 @@ const {
   normalizeAudioProfile,
   resolveObservedConnectionState,
   resolvePolledConnectionState,
+  resolveVisualConnectionState,
 } = require('../com.chromusx.bluetooth-connector.sdPlugin/bin/audio-profile.js');
 const {
   buildExclusiveConnectionPlan,
@@ -80,6 +81,13 @@ test('polling clears stale green state but never creates a green state', () => {
   assert.equal(resolvePolledConnectionState(true, 'connected'), true);
   assert.equal(resolvePolledConnectionState(false, 'connected'), false);
   assert.equal(resolvePolledConnectionState(false, 'unknown'), false);
+});
+
+test('visual polling trusts macOS connection state but remains conservative on Windows', () => {
+  assert.equal(resolveVisualConnectionState(false, 'connected', 'darwin'), true);
+  assert.equal(resolveVisualConnectionState(true, 'disconnected', 'darwin'), false);
+  assert.equal(resolveVisualConnectionState(false, 'connected', 'win32'), false);
+  assert.equal(resolveVisualConnectionState(true, 'disconnected', 'win32'), false);
 });
 
 test('device changes preserve the first handoff target until the next press', () => {

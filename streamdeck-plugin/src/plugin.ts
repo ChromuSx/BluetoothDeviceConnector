@@ -8,7 +8,7 @@ import {
   chooseConnectionAction,
   normalizeAudioProfile,
   resolveObservedConnectionState,
-  resolvePolledConnectionState,
+  resolveVisualConnectionState,
 } from './audio-profile';
 import {
   buildExclusiveConnectionPlan,
@@ -577,9 +577,10 @@ async function syncVisualState(context: string, settings: Settings) {
   if (stateRevision.get(context) !== revision || needsReconcile.has(context)) return;
 
   if (status !== 'unknown') {
-    const isConnected = resolvePolledConnectionState(
+    const isConnected = resolveVisualConnectionState(
       connectionState.get(context) || false,
-      status
+      status,
+      process.platform
     );
     connectionState.set(context, isConnected);
     if (!isConnected) needsReconcile.delete(context);

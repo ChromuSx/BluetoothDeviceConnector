@@ -70,3 +70,17 @@ export function resolvePolledConnectionState(
   }
   return cachedConnected;
 }
+
+// Windows endpoint discovery can briefly report a device as connected while
+// audio is not yet usable, so background polling must not create a green key.
+// macOS reports the device-wide IOBluetooth connection directly and can safely
+// use a conclusive connected observation to restore the visual state.
+export function resolveVisualConnectionState(
+  cachedConnected: boolean,
+  observedStatus: ObservedConnectionStatus,
+  platform: NodeJS.Platform
+): boolean {
+  return platform === 'win32'
+    ? resolvePolledConnectionState(cachedConnected, observedStatus)
+    : resolveObservedConnectionState(cachedConnected, observedStatus);
+}

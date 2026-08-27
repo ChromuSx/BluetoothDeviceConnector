@@ -6,6 +6,7 @@ exports.buildHelperArgs = buildHelperArgs;
 exports.chooseConnectionAction = chooseConnectionAction;
 exports.resolveObservedConnectionState = resolveObservedConnectionState;
 exports.resolvePolledConnectionState = resolvePolledConnectionState;
+exports.resolveVisualConnectionState = resolveVisualConnectionState;
 exports.AUDIO_PROFILE_A2DP = 'a2dp';
 exports.AUDIO_PROFILE_A2DP_HFP = 'a2dp-hfp';
 // Settings created before audio profiles were configurable have no value here.
@@ -46,4 +47,13 @@ function resolvePolledConnectionState(cachedConnected, observedStatus) {
         return false;
     }
     return cachedConnected;
+}
+// Windows endpoint discovery can briefly report a device as connected while
+// audio is not yet usable, so background polling must not create a green key.
+// macOS reports the device-wide IOBluetooth connection directly and can safely
+// use a conclusive connected observation to restore the visual state.
+function resolveVisualConnectionState(cachedConnected, observedStatus, platform) {
+    return platform === 'win32'
+        ? resolvePolledConnectionState(cachedConnected, observedStatus)
+        : resolveObservedConnectionState(cachedConnected, observedStatus);
 }
