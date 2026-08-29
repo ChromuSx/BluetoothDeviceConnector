@@ -1,4 +1,4 @@
-name: macOS beta
+name: macOS build
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build-macos-beta:
+  build-macos:
     runs-on: macos-14
     defaults:
       run:
@@ -34,16 +34,3 @@ jobs:
         run: |
           npm ci
           npm run build
-
-      - name: Enable macOS in beta manifest
-        run: |
-          node -e "const fs=require('fs'); const path='com.chromusx.bluetooth-connector.sdPlugin/manifest.json'; const manifest=JSON.parse(fs.readFileSync(path, 'utf8')); manifest.OS=[...manifest.OS.filter((os) => os.Platform !== 'mac'), {Platform:'mac', MinimumVersion:'13'}]; fs.writeFileSync(path, JSON.stringify(manifest, null, '\t') + '\n');"
-
-      - name: Create beta archive
-        run: ditto -c -k --keepParent com.chromusx.bluetooth-connector.sdPlugin bluetooth-connector-macos-beta.streamDeckPlugin
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bluetooth-connector-macos-beta
-          path: streamdeck-plugin/bluetooth-connector-macos-beta.streamDeckPlugin
-          if-no-files-found: error

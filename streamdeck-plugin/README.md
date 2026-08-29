@@ -53,18 +53,11 @@ Perfect for streamers, content creators, and anyone who frequently switches betw
 
 ## Installation
 
-### From Elgato Marketplace _(recommended)_
+**Install from Elgato Marketplace for automatic updates and the verified official build.**
 
 1. Open the [Elgato Marketplace page](https://marketplace.elgato.com/product/bluetooth-device-connector-d7e642fc-1199-4ca0-9849-e303281dd07d)
 2. Click **Get** — Stream Deck installs the plugin automatically
 3. Find "Bluetooth Device Connector" in your Stream Deck actions list
-
-### From Release Package
-
-1. Download `com.chromusx.bluetooth-connector.streamDeckPlugin` from the [latest release](https://github.com/ChromuSx/BluetoothDeviceConnector/releases)
-2. Double-click the downloaded file
-3. Stream Deck will automatically install the plugin
-4. Find "Bluetooth Device Connector" in your Stream Deck actions list
 
 ## Quick Start
 
@@ -87,26 +80,8 @@ Perfect for streamers, content creators, and anyone who frequently switches betw
 
 ## Requirements
 
-- **Platform**: Windows 10 or later; experimental beta support for macOS 13 or later
+- **Platform**: Windows 10 or later
 - **Stream Deck Software**: Version 6.9 or later
-
-## macOS Beta
-
-The macOS backend uses Apple's public `IOBluetooth` framework. Every push to `main`
-and every pull request builds a universal Intel/Apple Silicon helper and publishes an
-installable `bluetooth-connector-macos-beta.streamDeckPlugin` workflow artifact.
-
-The CI runner can test compilation and CLI parsing, but it has no paired Bluetooth
-audio hardware. Before publishing macOS support to Marketplace, verify at least:
-
-- paired-device listing and initial key state;
-- connect and disconnect with AirPods or another A2DP headset;
-- a speaker-only device;
-- Intel and Apple Silicon Macs when testers are available.
-
-The CI artifact is ad-hoc signed but not notarized. If Gatekeeper blocks it after
-downloading, the tester may need to remove quarantine from the installed beta. A
-Marketplace release should use the normal Elgato packaging and review flow.
 
 ## License
 
